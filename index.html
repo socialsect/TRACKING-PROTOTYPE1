@@ -1,1099 +1,899 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
+<meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
-<title>Putting – Arc Analyzer (Test-Track Foundation)</title>
-<link rel="preload" href="Fonts/good%20times%20rg.ttf" as="font" type="font/ttf" crossorigin="anonymous"/>
-<link rel="preload" href="Fonts/Avenir%20(1).ttc" as="font" type="font/ttc" crossorigin="anonymous"/>
+<title>Golf Ball Tracker v2</title>
 <style>
-@font-face{
-  font-family:'Good Times';
-  src:local('Good Times'),
-      url('Fonts/good%20times%20rg.ttf') format('truetype'),
-      url('/Fonts/good%20times%20rg.ttf') format('truetype');
-  font-weight:normal;font-style:normal;font-display:swap;
+:root {
+  --black: #0c0c0c;
+  --red: #e7222a;
+  --darkred: #ba1e1e;
+  --green: #00ff88;
+  --orange: #ff9500;
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
+  --safe-right: env(safe-area-inset-right);
 }
-@font-face{
-  font-family:'Avenir';
-  src:local('Avenir Next'),local('Avenir'),
-      url('Fonts/Avenir%20(1).ttc') format('truetype'),
-      url('/Fonts/Avenir%20(1).ttc') format('truetype');
-  font-weight:normal;font-style:normal;font-display:swap;
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--black);
+  color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  height: 100%;
+  overflow: hidden;
+  touch-action: manipulation;
 }
-:root{--safe-top:env(safe-area-inset-top);--safe-right:env(safe-area-inset-right);--safe-bottom:env(safe-area-inset-bottom);--safe-left:env(safe-area-inset-left);}
-html,body{margin:0;padding:0;background:#000;color:#fff;font-family:'Avenir',system-ui,-apple-system,sans-serif;height:100%;overflow:hidden;touch-action:manipulation}
-#wrap{position:fixed;inset:0;width:100vw;height:100vh;overflow:hidden;background:#000}
-video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-#overlay{pointer-events:none}
-#btn{
-  position:absolute;left:50%;transform:translateX(-50%);
-  bottom:calc(18px + var(--safe-bottom));
-  background:linear-gradient(135deg,#cb0000,#8b0000);border:none;color:#fff;
-  font-family:'Good Times',system-ui,sans-serif;
-  font-size:18px;font-weight:900;
-  padding:14px 28px;border-radius:999px;cursor:pointer;z-index:10;
+#wrap {
+  position: fixed;
+  inset: 0;
+  background: var(--black);
 }
-#btnAnalyze{
-  position:absolute;left:50%;transform:translateX(-50%);
-  bottom:calc(72px + var(--safe-bottom));
-  background:linear-gradient(135deg,#cb0000,#8b0000);border:none;color:#fff;
-  font-family:'Avenir',system-ui,sans-serif;
-  font-size:14px;font-weight:700;
-  padding:10px 20px;border-radius:999px;cursor:pointer;z-index:10;
+video, #overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
-#btnAnalyze:disabled{opacity:0.4;cursor:not-allowed}
-#badge{
-  position:absolute;top:calc(14px + var(--safe-top));left:calc(14px + var(--safe-left));
-  font-family:'Avenir',system-ui,sans-serif;
-  font-size:14px;font-weight:900;
-  padding:10px 12px;border-radius:12px;
-  background:rgba(0,0,0,.55);
-  opacity:1;z-index:10;
-  white-space:pre-line;
-}
-#badge.prominent,#badge.countdown{
-  top:50%;left:50%;transform:translate(-50%,-50%);
-}
-#badge.prominent{font-size:18px;max-width:300px;text-align:center;line-height:1.4;padding:16px 24px;background:rgba(10,10,10,.9);border-radius:16px;border:2px solid rgba(203,0,0,.6);}
-#badge.countdown{font-size:100px;padding:30px 50px;background:rgba(0,0,0,.9);border-radius:30px;text-align:center;max-width:none;border:2px solid #cb0000;}
-#messageOverlay{
-  position:absolute;inset:0;z-index:35;
-  background:transparent;
-  display:none;align-items:center;justify-content:center;
-  padding:24px;pointer-events:none;
-}
-#messageOverlay.show{display:flex;}
-.message-overlay-card{
-  max-width:320px;width:90%;
-  padding:24px 28px;text-align:center;
-  background:rgba(10,10,10,0.92);
-  border-radius:20px;
-  border:2px solid rgba(203,0,0,0.8);
-  box-shadow:0 12px 40px rgba(0,0,0,0.8);
-  font-family:'Avenir',system-ui,-apple-system,sans-serif;
-  font-size:18px;line-height:1.45;color:#f8fafc;
-}
-.message-overlay-card.countdown{
-  font-family:'Good Times',system-ui,sans-serif;
-  font-size:120px;font-weight:900;
-  padding:40px 60px;
-  color:#fff;
-  background:rgba(0,0,0,0.9);
-  border:2px solid #cb0000;
-  box-shadow:0 0 0 4px rgba(203,0,0,0.3);
-}
-.message-overlay-card.countdown .sub{font-family:'Avenir',system-ui,sans-serif;font-size:22px;margin-top:8px;opacity:0.95;}
-#switchWrap{
-  position:absolute;top:calc(14px + var(--safe-top));right:calc(14px + var(--safe-right));
-  z-index:10;background:rgba(0,0,0,.55);
-  padding:10px 12px;border-radius:12px;
-  display:flex;align-items:center;gap:10px;
-  font-weight:900;
-}
-#switchWrap .small{opacity:.85;font-size:12px;font-weight:800}
-#handed{
-  width:52px;height:28px;appearance:none;outline:none;cursor:pointer;
-  border-radius:999px;background:#444;position:relative;
-}
-#handed:checked{background:#e50914;}
-#handed::after{
-  content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;
-  background:#fff;transition:transform .2s;
-}
-#handed:checked::after{transform:translateX(24px);}
-.arc-results-overlay{
-  position:absolute;inset:0;background:rgba(0,0,0,0.85);
-  display:none;align-items:center;justify-content:center;z-index:40;padding:20px;
-}
-.arc-results-overlay.show{display:flex;}
-.arc-results-card{
-  width:min(400px,92vw);background:rgba(10,10,10,0.98);
-  border-radius:18px;border:2px solid rgba(203,0,0,0.7);
-  box-shadow:0 24px 80px rgba(0,0,0,0.9);padding:20px;
-  font-family:'Avenir',system-ui,-apple-system,sans-serif;
-}
-.arc-results-title{font-family:'Good Times',system-ui,sans-serif;font-size:18px;font-weight:800;margin-bottom:8px;color:#fff;}
-.arc-results-sub{font-size:12px;opacity:0.85;margin-bottom:12px;color:#e5e7eb;}
-.arc-results-main{font-family:'Good Times',system-ui,sans-serif;font-size:16px;font-weight:700;margin-bottom:10px;color:#f87171;}
-.arc-results-stats{font-size:11px;opacity:0.9;margin:8px 0;padding:8px 10px;background:rgba(0,0,0,.5);border-radius:10px;border:1px solid rgba(203,0,0,.3);color:#e5e7eb;}
-.arc-results-viz{width:100%;height:56px;background:rgba(0,0,0,.5);border-radius:10px;margin:8px 0;display:block;}
-.arc-training-label{font-family:'Good Times',system-ui,sans-serif;font-size:12px;font-weight:700;margin:12px 0 6px;color:#fff;}
-.arc-training-btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
-.arc-training-btn{flex:1;min-width:80px;padding:10px 12px;border:1px solid rgba(203,0,0,.5);border-radius:999px;background:rgba(20,20,20,.95);color:#e5e7eb;font-family:'Avenir',system-ui,sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
-.arc-training-btn.selected{border-color:#cb0000;background:rgba(203,0,0,.35);color:#fff;}
-.arc-export-btn{width:100%;padding:8px 12px;margin-top:6px;border:1px solid rgba(203,0,0,.4);border-radius:999px;background:rgba(10,10,10,.95);color:#94a3b8;font-family:'Avenir',system-ui,sans-serif;font-size:11px;cursor:pointer;}
-.arc-saved-msg{font-size:11px;color:#86efac;margin-top:4px;}
-.arc-results-footer{font-size:11px;opacity:0.75;margin-top:8px;color:#94a3b8;}
-#resultLabel{
-  position:absolute;left:50%;transform:translateX(-50%);
-  bottom:calc(72px + var(--safe-bottom));padding:8px 16px;border-radius:999px;
-  background:rgba(0,0,0,.85);border:1px solid #cb0000;
-  color:#fff;font-family:'Good Times',system-ui,sans-serif;font-size:12px;z-index:10;text-align:center;opacity:0;
-}
-</style>
-</head>
+#overlay { pointer-events: none; }
 
+/* ── STATUS BADGE ── */
+#status {
+position: absolute;
+top: calc(14px + var(–safe-top));
+left: calc(14px + var(–safe-left));
+background: rgba(20,20,20,0.92);
+border: 1px solid rgba(255,255,255,0.1);
+border-radius: 10px;
+padding: 10px 14px;
+font-size: 12px;
+font-weight: 700;
+white-space: pre-line;
+line-height: 1.5;
+z-index: 20;
+max-width: 220px;
+}
+
+/* ── EXPOSURE HINT ── */
+#exposureHint {
+position: absolute;
+top: calc(14px + var(–safe-top));
+right: calc(14px + var(–safe-right));
+background: rgba(231,34,42,0.15);
+border: 1px solid rgba(231,34,42,0.4);
+border-radius: 10px;
+padding: 10px 14px;
+font-size: 11px;
+font-weight: 700;
+line-height: 1.6;
+z-index: 20;
+display: none;
+}
+#exposureHint.show { display: block; }
+
+/* ── METRICS ── */
+#metrics {
+position: absolute;
+top: calc(14px + var(–safe-top));
+right: calc(14px + var(–safe-right));
+background: rgba(20,20,20,0.92);
+border: 1px solid rgba(255,255,255,0.1);
+border-radius: 10px;
+padding: 12px 14px;
+z-index: 20;
+display: none;
+min-width: 170px;
+}
+#metrics.show { display: block; }
+.mrow {
+display: flex;
+justify-content: space-between;
+align-items: baseline;
+gap: 12px;
+margin-bottom: 7px;
+}
+.mrow:last-child { margin-bottom: 0; }
+.mlabel {
+font-size: 9px;
+font-weight: 800;
+text-transform: uppercase;
+letter-spacing: .1em;
+color: rgba(255,255,255,0.5);
+}
+.mval {
+font-size: 15px;
+font-weight: 900;
+font-variant-numeric: tabular-nums;
+color: #fff;
+}
+.mval.green { color: var(–green); }
+.mval.orange { color: var(–orange); }
+
+/* ── BUTTONS ── */
+.btn {
+position: absolute;
+left: 50%;
+transform: translateX(-50%);
+border: none;
+font-size: 14px;
+font-weight: 800;
+letter-spacing: .4px;
+text-transform: uppercase;
+padding: 13px 28px;
+border-radius: 999px;
+cursor: pointer;
+z-index: 100;
+pointer-events: auto;
+transition: opacity .15s, transform .15s;
+white-space: nowrap;
+}
+.btn:active:not(:disabled) { transform: translateX(-50%) scale(0.97); }
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+.btn-primary {
+background: linear-gradient(135deg, var(–red), var(–darkred));
+color: #fff;
+box-shadow: 0 4px 20px rgba(231,34,42,.4);
+bottom: calc(20px + var(–safe-bottom));
+}
+.btn-ghost {
+background: rgba(30,30,30,0.92);
+border: 1px solid rgba(255,255,255,.12);
+color: #fff;
+}
+#btnCamera   { bottom: calc(20px + var(–safe-bottom)); }
+#btnRef      { bottom: calc(76px + var(–safe-bottom)); }
+#btnTrack    { bottom: calc(132px + var(–safe-bottom)); }
+#btnReset    { bottom: calc(188px + var(–safe-bottom)); }
+
+/* ── BRIGHTNESS SLIDER ── */
+#brightnessControl {
+position: absolute;
+bottom: calc(250px + var(–safe-bottom));
+left: 50%;
+transform: translateX(-50%);
+display: none;
+flex-direction: column;
+align-items: center;
+gap: 6px;
+z-index: 100;
+background: rgba(20,20,20,0.9);
+border: 1px solid rgba(255,255,255,.1);
+border-radius: 12px;
+padding: 12px 20px;
+width: 260px;
+}
+#brightnessControl.show { display: flex; }
+#brightnessControl label {
+font-size: 11px;
+font-weight: 700;
+text-transform: uppercase;
+letter-spacing: .1em;
+color: rgba(255,255,255,.6);
+}
+#brightnessSlider {
+width: 100%;
+accent-color: var(–red);
+}
+#brightnessValue {
+font-size: 12px;
+font-weight: 800;
+color: var(–orange);
+}
+
+/* ── TOAST ── */
+.toast {
+position: fixed;
+bottom: calc(300px + var(–safe-bottom));
+left: 50%;
+transform: translateX(-50%);
+background: rgba(20,20,20,.96);
+border: 1px solid var(–red);
+border-radius: 10px;
+padding: 10px 18px;
+font-size: 13px;
+font-weight: 700;
+z-index: 1000;
+pointer-events: none;
+animation: slideUp .25s ease-out;
+}
+@keyframes slideUp {
+from { opacity:0; transform: translate(-50%,14px); }
+to   { opacity:1; transform: translate(-50%,0); }
+}
+
+/* ── DEBUG CANVAS BRIGHTNESS WARNING ── */
+#darkWarning {
+position: absolute;
+bottom: calc(310px + var(–safe-bottom));
+left: 50%;
+transform: translateX(-50%);
+background: rgba(255,149,0,.2);
+border: 1px solid var(–orange);
+border-radius: 8px;
+padding: 8px 16px;
+font-size: 11px;
+font-weight: 700;
+color: var(–orange);
+z-index: 20;
+display: none;
+white-space: nowrap;
+}
+#darkWarning.show { display: block; }
+</style>
+
+</head>
 <body>
 <div id="wrap">
   <video id="video" playsinline autoplay muted></video>
   <canvas id="overlay"></canvas>
 
-  <div id="switchWrap" title="RH / LH">
-    <div>
-      <div>RH / LH</div>
-      <div class="small" id="handLabel">RH</div>
-    </div>
-    <label><input id="handed" type="checkbox" aria-label="Toggle Left-handed"/></label>
+  <div id="status">Press START CAMERA</div>
+  <div id="exposureHint" class="show">
+    ⚠️ IMAGE TOO DARK?<br>
+    This app uses a very high<br>
+    shutter speed. You need<br>
+    BRIGHT LED lights.<br>
+    Use the slider below ↓
   </div>
 
-  <button id="btn">START</button>
-  <button id="btnAnalyze" disabled>ANALYZE ARC</button>
-  <div id="badge">Init…</div>
-  <div id="messageOverlay">
-    <div id="messageOverlayCard" class="message-overlay-card"></div>
+  <div id="metrics">
+    <div class="mrow"><span class="mlabel">FRAMES</span><span class="mval" id="mFrames">0</span></div>
+    <div class="mrow"><span class="mlabel">BALL SPEED</span><span class="mval green" id="mSpeed">--</span></div>
+    <div class="mrow"><span class="mlabel">ANGLE</span><span class="mval" id="mAngle">--</span></div>
+    <div class="mrow"><span class="mlabel">DIRECTION</span><span class="mval orange" id="mDir">--</span></div>
+    <div class="mrow"><span class="mlabel">DEVIATION</span><span class="mval" id="mDev">--</span></div>
   </div>
-  <div id="resultLabel"></div>
-  <div id="arcResultsOverlay" class="arc-results-overlay"></div>
+
+  <div id="darkWarning">⚠️ Frame too dark — increase lighting</div>
+
+  <div id="brightnessControl">
+    <label>Exposure Compensation</label>
+    <input id="brightnessSlider" type="range" min="-3" max="0" step="0.25" value="-2"/>
+    <span id="brightnessValue">-2.0 EV (high shutter)</span>
+  </div>
+
+<button class="btn btn-primary" id="btnCamera">Start Camera</button>
+<button class="btn btn-ghost" id="btnRef"   disabled>Capture Reference</button>
+<button class="btn btn-ghost" id="btnTrack" disabled>Start Tracking</button>
+<button class="btn btn-ghost" id="btnReset" disabled>Reset</button>
+
 </div>
 
 <script>
-/* ===================== CONFIG ===================== */
-const FPS_TARGET = 30;
-const DIFF_THR = 38;
-const STEP = 3;
-const DIR_Y = 0.5;
+/* ═══════════════════════════════════════════
+   THE KEY INSIGHT:
+   Use a very high shutter speed to track
+   golf balls. This results in a darker image
+   but freezes the ball perfectly in each frame.
 
-const ZONE_W = 1.0;
-const ZONE_H = 0.58;
+   High shutter speed = frozen ball with zero
+   motion blur in every single 60fps frame.
+   The ball is crisp and circular in each frame
+   it appears in — making blob detection reliable.
 
-const HEAD_BAND_HALF_PX = 120;
+   Without this, at high speeds the ball becomes
+   a long blur smear that fails circularity checks.
+═══════════════════════════════════════════ */
 
-const BALL_X = 0.5;
-const BALL_RADIUS_PCT = 0.055;
-/* 
- * BALL_MASK_MULT removed — no longer used as a hard skip radius.
- * We now use a soft-falloff weighting instead.
- * BALL_SOFT_INNER: inside this radius, pixel weight = BALL_WEIGHT_CENTER (low but non-zero)
- * BALL_SOFT_OUTER: outside this radius, pixel weight = 1.0 (full)
- * Between inner and outer: linear interpolation from center-weight to 1.0
- */
-const BALL_SOFT_INNER = 0.8;   /* fraction of visual ball radius — tight core */
-const BALL_SOFT_OUTER = 2.0;   /* fraction of visual ball radius — weight reaches 1.0 here */
-const BALL_WEIGHT_CENTER = 0.25; /* minimum weight at dead centre (not zero — still counts) */
+/* ─── CONFIG ─── */
+const CFG = {
+  // Detection thresholds
+  DIFF_THR:       25,    // lower = more sensitive (ball may be slightly diff shade)
+  MIN_BLOB:       8,     // min connected pixels in downsampled grid
+  MAX_BLOB:       3000,
+  MIN_R_PX:       5,     // min ball radius in pixels
+  MAX_R_PX:       80,    // larger for top-down view
+  MAX_ASPECT:     1.8,   // allow slightly non-circular (top-down angle)
+  STEP:           2,     // sampling step — smaller = more accurate, slower
 
-const LUMA_IGNORE_WHITE = 215;
+  // Pre-impact
+  STABLE_FRAMES:  6,     // frames ball must be still to be "locked"
+  STABLE_THRESH:  4,     // max pixel movement to count as stable
+  IMPACT_THRESH:  18,    // pixels of movement = impact detected
 
-const MIN_BLOB_PX = 45;
-const MIN_RECT_AREA = 650;
-const MAX_RECT_ASPECT = 5.0;
+  // Post-impact
+  MAX_POST_FRAMES: 12,   // max frames to track after impact
+  MAX_MISSED:      4,    // frames without detection before giving up
+  SEARCH_RADIUS:   350,  // px around last known position
 
-const ROI_PAD = 160;
-const HOLD_LAST_FRAMES = 10;
+  // Physics
+  PX_PER_METER:   null,  // set during calibration, or estimated from ball size
+  BALL_DIAMETER_M: 0.0427, // real golf ball diameter in metres
+};
 
-const FACE_GATE_MARGIN_PX = 12;
+/* ─── STATE ─── */
+const S = {
+  IDLE: 0, WAITING_BALL: 1, BALL_LOCKED: 2,
+  IMPACT: 3, TRACKING: 4, DONE: 5
+};
+let state = S.IDLE;
+let refFrame = null;
+let preFrames  = [];   // {x,y,r,t}
+let postFrames = [];
+let stableCount = 0;
+let lockedPos   = null; // {x,y,r}
+let lastPos     = null;
+let missedCount = 0;
+let loopId      = null;
+let exposureEV  = -2.0; // default: very fast shutter
 
-const DEBUG_DRAW_POINTS = false;
-const DEBUG_ALWAYS = true;
-/* ================================================== */
+/* ─── DOM ─── */
+const video    = document.getElementById('video');
+const overlay  = document.getElementById('overlay');
+const ctx      = overlay.getContext('2d', {willReadFrequently:true});
+const offscreen = document.createElement('canvas');
+const offCtx   = offscreen.getContext('2d', {willReadFrequently:true});
 
-/* ===== CAPTURE CONFIG (arc analyzer) ===== */
-const RECORD_MS = 2000;
-const STILL_MS = 800;
-const STILL_PIXEL_COUNT = 55;
-const PUTTS_TARGET = 3;
-const TOUCH_TOL = 8;
-const X_TOL = 6;
-const AVG_SAMPLES = 120;
-const REPLAY_FPS = 22;
+const status   = document.getElementById('status');
+const metrics  = document.getElementById('metrics');
+const darkWarn = document.getElementById('darkWarning');
+const expCtrl  = document.getElementById('brightnessControl');
+const expSlider = document.getElementById('brightnessSlider');
+const expVal   = document.getElementById('brightnessValue');
 
-const START_ZONE_W = 210;
-const START_ZONE_H = 280;
-const COUNTDOWN_DURATION = 700;
-
-const ARC_TRAINING_KEY = "arcAnalyzerFromTestTrack";
-
-const video = document.getElementById("video");
-const overlay = document.getElementById("overlay");
-const ctx = overlay.getContext("2d",{willReadFrequently:true});
-const btn = document.getElementById("btn");
-const btnAnalyze = document.getElementById("btnAnalyze");
-const badge = document.getElementById("badge");
-const resultLabelEl = document.getElementById("resultLabel");
-const arcResultsOverlay = document.getElementById("arcResultsOverlay");
-
-const handedToggle = document.getElementById("handed");
-const handLabel = document.getElementById("handLabel");
-function isLeftHanded(){ return handedToggle.checked; }
-handedToggle.addEventListener("change", ()=> handLabel.textContent = isLeftHanded() ? "LH" : "RH");
-
-/* ---------- helpers ---------- */
-const sleep = ms => new Promise(r=>setTimeout(r,ms));
-function getZone(w,h){
-  const zw=w*ZONE_W, zh=h*ZONE_H;
-  return {x:(w-zw)/2,y:(h-zh)/2,w:zw,h:zh};
+/* ─── HELPERS ─── */
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(e=>e.remove());
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 3000);
 }
-function ballInfo(w,h){
-  const cx=w*BALL_X, cy=h*DIR_Y;
-  const r=Math.min(w,h)*BALL_RADIUS_PCT;
-  /* pre-compute the soft-zone radii in pixels */
-  const innerR = r * BALL_SOFT_INNER;
-  const outerR = r * BALL_SOFT_OUTER;
-  return {cx, cy, r, innerR, outerR};
-}
+function setStatus(t) { status.textContent = t; }
+function setMetric(id, v) { document.getElementById(id).textContent = v; }
 
-/*
- * ballWeight(x, y, b)
- * Returns a weight in [BALL_WEIGHT_CENTER … 1.0] based on distance from ball centre.
- *   • dist <= innerR  →  BALL_WEIGHT_CENTER  (centre: low but counted)
- *   • dist >= outerR  →  1.0                 (far enough: full weight)
- *   • in between      →  smooth linear lerp
- */
-function ballWeight(x, y, b){
-  const dx = x - b.cx, dy = y - b.cy;
-  const dist = Math.sqrt(dx*dx + dy*dy);
-  if(dist <= b.innerR) return BALL_WEIGHT_CENTER;
-  if(dist >= b.outerR) return 1.0;
-  /* linear interpolation */
-  const t = (dist - b.innerR) / (b.outerR - b.innerR);
-  return BALL_WEIGHT_CENTER + t * (1.0 - BALL_WEIGHT_CENTER);
+/* ─── WHITE-BALL DETECTOR ─── 
+   Works for both standard and high-shutter (darker) frames.
+   At high shutter speed, white ball still appears bright
+   relative to the (now darker) background.
+   We check absolute brightness AND relative brightness. */
+function isBallPixel(r, g, b, backgroundBrightness) {
+  const brightness = (r * 0.299 + g * 0.587 + b * 0.114);
+  const chroma = Math.max(r,g,b) - Math.min(r,g,b);
+  // Must be white-ish (low saturation)
+  if (chroma > 45) return false;
+  // Absolute: must be reasonably bright
+  if (brightness < 140) return false;
+  return true;
 }
 
-function faceLineX(w,h){
-  const b=ballInfo(w,h);
-  return isLeftHanded() ? (b.cx - b.r) : (b.cx + b.r);
-}
-function passesTriggerGate(x,w,h){
-  const fx=faceLineX(w,h);
-  if(!isLeftHanded()) return x >= (fx + FACE_GATE_MARGIN_PX);
-  return x <= (fx - FACE_GATE_MARGIN_PX);
+/* ─── GRAB FRAME ─── */
+function grabFrame() {
+  offCtx.drawImage(video, 0, 0);
+  return offCtx.getImageData(0, 0, offscreen.width, offscreen.height);
 }
 
-/* ---------- START ZONE helpers ---------- */
-function getStartZone(w, h){
-  const b = ballInfo(w, h);
-  const fx = faceLineX(w, h);
-  let x;
-  if(isLeftHanded()){ x = fx - START_ZONE_W; }
-  else{ x = fx; }
-  const y = b.cy - START_ZONE_H / 2;
-  return { x, y, w: START_ZONE_W, h: START_ZONE_H };
+/* ─── CHECK FRAME BRIGHTNESS ─── 
+   Warn user if overall frame is too dark to detect */
+function checkBrightness(frame) {
+  let sum = 0;
+  const step = 20;
+  let count = 0;
+  for (let i = 0; i < frame.data.length; i += step*4) {
+    sum += (frame.data[i] + frame.data[i+1] + frame.data[i+2]) / 3;
+    count++;
+  }
+  const avg = sum / count;
+  darkWarn.classList.toggle('show', avg < 30);
+  return avg;
 }
-function isInsideStartZone(center, w, h){
-  if(!center) return false;
-  const zone = getStartZone(w, h);
-  return center.x >= zone.x && center.x <= zone.x + zone.w &&
-         center.y >= zone.y && center.y <= zone.y + zone.h;
+
+/* ─── BLOB DETECTION ─── */
+function findBall(refFrame, curFrame, x0, x1, y0, y1, prevPos) {
+  const w = curFrame.width;
+  const step = CFG.STEP;
+  x0 = Math.max(0, x0|0);  x1 = Math.min(w, x1|0);
+  y0 = Math.max(0, y0|0);  y1 = Math.min(curFrame.height, y1|0);
+
+  const gw = Math.max(1, ((x1-x0)/step)|0);
+  const gh = Math.max(1, ((y1-y0)/step)|0);
+  const grid = new Uint8Array(gw * gh);
+
+  /* diff + white check */
+  let idx = 0;
+  for (let gy = 0; gy < gh; gy++) {
+    const ay = y0 + gy*step;
+    for (let gx = 0; gx < gw; gx++, idx++) {
+      const ax = x0 + gx*step;
+      const fi = (ay*w + ax)*4;
+      const cr=curFrame.data[fi], cg=curFrame.data[fi+1], cb=curFrame.data[fi+2];
+      const dr=Math.abs(cr-refFrame.data[fi]);
+      const dg=Math.abs(cg-refFrame.data[fi+1]);
+      const db=Math.abs(cb-refFrame.data[fi+2]);
+      if ((dr+dg+db)/3 > CFG.DIFF_THR && isBallPixel(cr,cg,cb)) grid[idx]=1;
+    }
+  }
+
+  /* connected components */
+  const vis = new Uint8Array(gw*gh);
+  let best = null, bestScore = 0;
+
+  for (let i = 0; i < grid.length; i++) {
+    if (!grid[i] || vis[i]) continue;
+    const q=[i]; vis[i]=1; const comp=[];
+    for (let qi=0; qi<q.length; qi++) {
+      const c=q[qi]; comp.push(c);
+      const gx=c%gw, gy=(c/gw)|0;
+      const ns=[c-1,c+1,c-gw,c+gw];
+      const ok=[gx>0,gx<gw-1,gy>0,gy<gh-1];
+      for (let n=0;n<4;n++) if(ok[n]&&grid[ns[n]]&&!vis[ns[n]]){vis[ns[n]]=1;q.push(ns[n]);}
+    }
+    if (comp.length<CFG.MIN_BLOB||comp.length>CFG.MAX_BLOB) continue;
+
+    let sx=0,sy=0,mnx=Infinity,mxx=-Infinity,mny=Infinity,mxy=-Infinity;
+    for (const c of comp) {
+      const gx=c%gw,gy=(c/gw)|0;
+      sx+=gx;sy+=gy;
+      if(gx<mnx)mnx=gx;if(gx>mxx)mxx=gx;
+      if(gy<mny)mny=gy;if(gy>mxy)mxy=gy;
+    }
+    const cx=x0+(sx/comp.length)*step;
+    const cy=y0+(sy/comp.length)*step;
+    const bw=(mxx-mnx+1)*step, bh=(mxy-mny+1)*step;
+    const radius=Math.max(bw,bh)/2;
+    if (radius<CFG.MIN_R_PX||radius>CFG.MAX_R_PX) continue;
+    const aspect=bw>=bh?bw/bh:bh/bw;
+    if (aspect>CFG.MAX_ASPECT) continue;
+
+    let score = comp.length * (comp.length/(bw*bh));
+    // Bias toward previous position when tracking
+    if (prevPos) {
+      const dx=cx-prevPos.x, dy=cy-prevPos.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      score /= (1 + dist*0.015);
+      if (prevPos.r) score /= (1+Math.abs(radius-prevPos.r)*0.08);
+    }
+    if (score>bestScore) { bestScore=score; best={x:cx,y:cy,r:radius}; }
+  }
+  return best;
 }
-function drawStartZone(w, h){
-  const zone = getStartZone(w, h);
+
+/* ─── APPLY EXPOSURE CONTROL ─── 
+   Key technique: set low exposureCompensation
+   which forces very fast shutter speed = frozen ball. */
+let imageCapture = null;
+async function applyExposure(ev) {
+  exposureEV = ev;
+  expVal.textContent = `${ev.toFixed(2)} EV (${ev <= -1.5 ? 'fast shutter ✓' : 'normal'})`;
+  
+  if (!imageCapture) return;
+  try {
+    const capabilities = await imageCapture.getPhotoCapabilities();
+    const settings = {};
+    
+    // Try ImageCapture exposure compensation
+    if (capabilities.exposureCompensation) {
+      const {min,max} = capabilities.exposureCompensation;
+      // Map our EV scale (-3 to 0) to device range
+      const mapped = min + ((ev + 3) / 3) * (max - min);
+      settings.exposureCompensation = Math.max(min, Math.min(max, mapped));
+    }
+    
+    await imageCapture.setOptions(settings);
+  } catch(e) {
+    // ImageCapture exposure not supported on all devices
+    // Fall back to constraintApply on the track
+    try {
+      const track = video.srcObject?.getVideoTracks()[0];
+      if (track && track.applyConstraints) {
+        await track.applyConstraints({
+          advanced: [{ exposureCompensation: ev }]
+        });
+      }
+    } catch(e2) { /* silent */ }
+  }
+}
+
+/* ─── CAMERA START ─── */
+async function startCamera() {
+  try {
+    const perm = await navigator.mediaDevices.getUserMedia({video:true});
+    perm.getTracks().forEach(t=>t.stop());
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d=>d.kind==='videoinput');
+    const back = cams.find(d=>/back|rear|environment/i.test(d.label));
+    const usb  = cams.find(d=>/usb|uvc|capture|hdmi|elgato/i.test(d.label));
+
+    const deviceId = (usb||back)?.deviceId;
+    const constraints = {
+      video: {
+        ...(deviceId ? {deviceId:{exact:deviceId}} : {facingMode:{ideal:'environment'}}),
+        width:  {ideal:1920},
+        height: {ideal:1080},
+        frameRate: {ideal:60},
+        // Request manual exposure mode so we can set shutter speed
+        exposureMode: 'manual',
+        // Key: very low exposure compensation = very fast shutter = frozen ball
+        exposureCompensation: {ideal: -2.0},
+        // Also try to lock white balance so reference frame stays valid
+        whiteBalanceMode: 'continuous',
+      }
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+    await video.play();
+
+    await new Promise(r => {
+      if (video.videoWidth) return r();
+      video.addEventListener('loadedmetadata', r, {once:true});
+    });
+    overlay.width = offscreen.width = video.videoWidth;
+    overlay.height = offscreen.height = video.videoHeight;
+
+    // Set up ImageCapture for fine exposure control
+    const track = stream.getVideoTracks()[0];
+    if (window.ImageCapture) {
+      imageCapture = new ImageCapture(track);
+    }
+
+    // Log actual camera settings
+    const settings = track.getSettings();
+    console.log('Camera settings:', settings);
+    console.log('Actual FPS:', settings.frameRate);
+    console.log('Exposure mode:', settings.exposureMode);
+    console.log('Exposure compensation:', settings.exposureCompensation);
+
+    setStatus(`Camera ready\n${settings.frameRate|0}fps · ${video.videoWidth}×${video.videoHeight}`);
+    document.getElementById('btnCamera').disabled = true;
+    document.getElementById('btnRef').disabled = false;
+    expCtrl.classList.add('show');
+    document.getElementById('exposureHint').classList.remove('show');
+
+    applyExposure(parseFloat(expSlider.value));
+    toast('Camera started — adjust exposure if needed');
+  } catch(err) {
+    console.error(err);
+    setStatus('Camera error:\n'+err.message);
+    toast('Camera failed: '+err.message);
+  }
+}
+
+/* ─── REFERENCE CAPTURE ─── */
+function captureReference() {
+  refFrame = grabFrame();
+  const avgBrightness = checkBrightness(refFrame);
+  
+  state = S.WAITING_BALL;
+  preFrames = []; postFrames = [];
+  stableCount = 0; lockedPos = null;
+
+  setStatus(`Ref captured\nBrightness: ${avgBrightness.toFixed(0)}\nPlace ball in view`);
+  document.getElementById('btnTrack').disabled = false;
+  document.getElementById('btnReset').disabled = false;
+  
+  if (avgBrightness < 40) {
+    toast('⚠️ Dark image! Add more light for better detection');
+  } else {
+    toast('Reference captured — place ball & hit');
+  }
+}
+
+/* ─── START TRACKING ─── */
+function startTracking() {
+  if (!refFrame) return;
+  state = S.WAITING_BALL;
+  preFrames = []; postFrames = [];
+  stableCount = 0; lockedPos = null; lastPos = null; missedCount = 0;
+  metrics.classList.add('show');
+  document.getElementById('btnTrack').disabled = true;
+  document.getElementById('btnRef').disabled = true;
+  setStatus('Waiting for ball...\nPlace ball in frame');
+  setMetric('mFrames','0'); setMetric('mSpeed','--');
+  setMetric('mAngle','--'); setMetric('mDir','--');
+  setMetric('mDev','--');
+  scheduleNext();
+}
+
+/* ─── MAIN PROCESSING LOOP ─── */
+function scheduleNext() {
+  if (state===S.IDLE||state===S.DONE) return;
+  if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+    loopId = video.requestVideoFrameCallback(onFrame);
+  } else {
+    loopId = requestAnimationFrame(onFrame);
+  }
+}
+
+function onFrame() {
+  if (state===S.IDLE||state===S.DONE) return;
+  processFrame();
+  scheduleNext();
+}
+
+function processFrame() {
+  if (!refFrame) return;
+  const cur = grabFrame();
+  checkBrightness(cur);
+  const W = cur.width, H = cur.height;
+  const t = performance.now();
+
+  if (state === S.WAITING_BALL || state === S.BALL_LOCKED) {
+    /* Search a generous region for the stationary ball */
+    const ball = findBall(refFrame, cur, 0, W, 0, H, lockedPos);
+
+    if (ball) {
+      /* Check stability */
+      if (lockedPos) {
+        const dx=ball.x-lockedPos.x, dy=ball.y-lockedPos.y;
+        const moved=Math.sqrt(dx*dx+dy*dy);
+
+        if (moved < CFG.STABLE_THRESH) {
+          stableCount++;
+        } else if (moved > CFG.IMPACT_THRESH && stableCount >= CFG.STABLE_FRAMES) {
+          /* ─── IMPACT! ─── */
+          state = S.TRACKING;
+          postFrames = [{x:ball.x,y:ball.y,r:ball.r,t}];
+          lastPos = ball;
+          missedCount = 0;
+          setStatus('Impact! Tracking...');
+          toast('Impact detected!');
+          setMetric('mFrames','1');
+          
+          // Calibrate px/m from locked ball size if not set
+          if (!CFG.PX_PER_METER && lockedPos) {
+            CFG.PX_PER_METER = (lockedPos.r * 2) / CFG.BALL_DIAMETER_M;
+            console.log(`Auto-calibrated: ${CFG.PX_PER_METER.toFixed(0)} px/m from ball radius ${lockedPos.r.toFixed(1)}px`);
+          }
+          return;
+        } else {
+          stableCount = Math.max(0, stableCount - 1);
+        }
+      }
+
+      lockedPos = ball;
+      preFrames.push({x:ball.x,y:ball.y,r:ball.r,t});
+      if (preFrames.length > 30) preFrames.shift();
+
+      if (stableCount >= CFG.STABLE_FRAMES) {
+        state = S.BALL_LOCKED;
+        setStatus(`Ball locked ✓\nRadius: ${ball.r.toFixed(1)}px\nReady to hit!`);
+      } else {
+        setStatus(`Stabilizing...\n${stableCount}/${CFG.STABLE_FRAMES} frames`);
+      }
+    } else {
+      stableCount = 0;
+      setStatus('No ball detected\nPlace white ball in view');
+    }
+
+  } else if (state === S.TRACKING) {
+    /* Search around last known position */
+    const sr = CFG.SEARCH_RADIUS;
+    const x0 = lastPos ? lastPos.x - sr : 0;
+    const x1 = lastPos ? lastPos.x + sr : W;
+    const y0 = lastPos ? lastPos.y - sr : 0;
+    const y1 = lastPos ? lastPos.y + sr : H;
+
+    const ball = findBall(refFrame, cur, x0, x1, y0, y1, lastPos);
+
+    if (ball) {
+      missedCount = 0;
+      lastPos = ball;
+      postFrames.push({x:ball.x,y:ball.y,r:ball.r,t});
+      setMetric('mFrames', postFrames.length);
+      if (postFrames.length >= 2) updateMetrics();
+    } else {
+      missedCount++;
+      if (missedCount > CFG.MAX_MISSED) {
+        finishTracking();
+        return;
+      }
+    }
+
+    if (postFrames.length >= CFG.MAX_POST_FRAMES) {
+      finishTracking();
+    }
+  }
+}
+
+/* ─── FINISH & COMPUTE ─── */
+function finishTracking() {
+  state = S.DONE;
+  updateMetrics();
+  setStatus(`Done — ${postFrames.length} frames\nPress RESET for next shot`);
+  toast('Shot tracked! See metrics →');
+  document.getElementById('btnRef').disabled = false;
+}
+
+function updateMetrics() {
+  if (postFrames.length < 2) return;
+
+  const f0 = postFrames[0];
+  const fN = postFrames[postFrames.length-1];
+
+  /* velocity from all frames (linear regression for robustness) */
+  let sumT=0,sumX=0,sumY=0,sumT2=0,sumTX=0,sumTY=0;
+  const n = postFrames.length;
+  const t0 = postFrames[0].t;
+  for (const f of postFrames) {
+    const dt = (f.t-t0)/1000;
+    sumT+=dt; sumX+=f.x; sumY+=f.y;
+    sumT2+=dt*dt; sumTX+=dt*f.x; sumTY+=dt*f.y;
+  }
+  const denom = n*sumT2 - sumT*sumT;
+  let vxPxPerSec=0, vyPxPerSec=0;
+  if (Math.abs(denom)>1e-9) {
+    vxPxPerSec = (n*sumTX - sumT*sumX) / denom;
+    vyPxPerSec = (n*sumTY - sumT*sumY) / denom;
+  }
+
+  /* pixel/metre calibration */
+  const ppm = CFG.PX_PER_METER || 300;
+  const vxMs = vxPxPerSec / ppm;
+  const vyMs = vyPxPerSec / ppm;
+  const speedMs = Math.sqrt(vxMs*vxMs + vyMs*vyMs);
+
+  /* angle — invert Y because screen Y goes down */
+  const dx = fN.x - f0.x;
+  const dy = -(fN.y - f0.y);
+  const angleRad = Math.atan2(dy, dx);
+  let angleDeg = angleRad * (180/Math.PI);
+  angleDeg = Math.max(-90, Math.min(90, angleDeg));
+
+  /* direction */
+  const dir = angleDeg > 2 ? 'Right' : angleDeg < -2 ? 'Left' : 'Straight';
+
+  /* lateral deviation in cm at 1m distance (angular) */
+  const deviationCm = Math.tan(angleRad) * 100;
+
+  setMetric('mSpeed',  `${speedMs.toFixed(2)} m/s`);
+  setMetric('mAngle',  `${angleDeg.toFixed(1)}°`);
+  setMetric('mDir',    dir);
+  setMetric('mDev',    `${deviationCm >= 0 ? '+' : ''}${deviationCm.toFixed(1)} cm/m`);
+  setMetric('mFrames', postFrames.length);
+}
+
+/* ─── DRAWING ─── */
+let animId = null;
+function renderLoop() {
+  animId = requestAnimationFrame(renderLoop);
+  if (!overlay.width) return;
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+  /* Crosshairs */
+  if (state !== S.IDLE) {
+    ctx.strokeStyle = 'rgba(231,34,42,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([8,5]);
+    ctx.beginPath();
+    ctx.moveTo(overlay.width/2,0); ctx.lineTo(overlay.width/2,overlay.height);
+    ctx.moveTo(0,overlay.height/2); ctx.lineTo(overlay.width,overlay.height/2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  /* Locked ball indicator */
+  if ((state===S.BALL_LOCKED||state===S.WAITING_BALL) && lockedPos && stableCount>=CFG.STABLE_FRAMES) {
+    ctx.strokeStyle = '#ff9500';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(lockedPos.x, lockedPos.y, lockedPos.r+4, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,149,0,0.2)';
+    ctx.fill();
+
+    ctx.fillStyle = '#ff9500';
+    ctx.font = 'bold 12px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('BALL LOCKED', lockedPos.x, lockedPos.y - lockedPos.r - 14);
+  }
+
+  /* Post-impact trajectory */
+  if (postFrames.length > 1) {
+    /* trail line */
+    ctx.strokeStyle = 'rgba(0,255,136,0.85)';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(postFrames[0].x, postFrames[0].y);
+    for (let i=1;i<postFrames.length;i++) ctx.lineTo(postFrames[i].x,postFrames[i].y);
+    ctx.stroke();
+
+    /* draw each detected position */
+    for (let i=0;i<postFrames.length;i++) {
+      const f=postFrames[i];
+      const alpha = 0.25 + 0.55*(i/postFrames.length);
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.strokeStyle = `rgba(200,255,200,${alpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.fill(); ctx.stroke();
+
+      /* centre dot */
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, 3, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,255,136,0.95)';
+      ctx.fill();
+    }
+
+    /* latest frame highlight */
+    const lp = postFrames[postFrames.length-1];
+    ctx.beginPath();
+    ctx.arc(lp.x, lp.y, lp.r+6, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(0,255,136,1)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    /* direction arrow from start → end */
+    if (state===S.DONE && postFrames.length>=2) {
+      const p0=postFrames[0], p1=postFrames[postFrames.length-1];
+      drawArrow(p0.x,p0.y,p1.x,p1.y,'rgba(255,255,100,0.8)');
+    }
+  }
+
+  /* impact origin circle */
+  if (postFrames.length>0 && lockedPos) {
+    ctx.beginPath();
+    ctx.arc(lockedPos.x, lockedPos.y, lockedPos.r+2, 0, Math.PI*2);
+    ctx.strokeStyle='rgba(231,34,42,0.9)';
+    ctx.lineWidth=2;
+    ctx.stroke();
+  }
+}
+
+function drawArrow(x1,y1,x2,y2,color) {
+  const dx=x2-x1,dy=y2-y1;
+  const len=Math.sqrt(dx*dx+dy*dy);
+  if(len<10)return;
+  const ux=dx/len,uy=dy/len;
+  const hw=14, hl=24;
   ctx.save();
-  ctx.strokeStyle = "rgba(0, 255, 0, 0.85)";
-  ctx.lineWidth = 5;
-  ctx.strokeRect(zone.x, zone.y, zone.w, zone.h);
-  ctx.fillStyle = "rgba(0, 255, 0, 0.95)";
-  ctx.font = "bold 18px 'Good Times', system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("PUTTER ZONE", zone.x + zone.w / 2, zone.y + zone.h / 2);
-  ctx.restore();
-}
-
-function drawArrowOnLine(w,y,toLeft){
-  const margin=26;
-  const xTip=toLeft?margin:(w-margin);
-  const xBase=toLeft?(margin+46):(w-margin-46);
-  const head=14;
-  ctx.save();
-  ctx.strokeStyle="red"; ctx.fillStyle="red"; ctx.lineWidth=4;
-  ctx.lineCap="round"; ctx.lineJoin="round";
-  ctx.beginPath(); ctx.moveTo(xBase,y); ctx.lineTo(xTip,y); ctx.stroke();
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=3;
   ctx.beginPath();
-  if(toLeft){ ctx.moveTo(xTip,y); ctx.lineTo(xTip+head,y-head); ctx.lineTo(xTip+head,y+head); }
-  else{ ctx.moveTo(xTip,y); ctx.lineTo(xTip-head,y-head); ctx.lineTo(xTip-head,y+head); }
+  ctx.moveTo(x1,y1); ctx.lineTo(x2-ux*hl,y2-uy*hl);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-ux*hl-uy*hw, y2-uy*hl+ux*hw);
+  ctx.lineTo(x2-ux*hl+uy*hw, y2-uy*hl-ux*hw);
   ctx.closePath(); ctx.fill();
   ctx.restore();
 }
-function drawBallAndFaceLine(w,h){
-  const y=h*DIR_Y;
-  const b=ballInfo(w,h);
-  const fx=faceLineX(w,h);
-  ctx.save();
-  ctx.strokeStyle="rgba(255,255,255,0.95)";
-  ctx.lineWidth=4;
-  ctx.beginPath(); ctx.arc(b.cx,y,b.r,0,Math.PI*2); ctx.stroke();
-  ctx.restore();
-  ctx.save();
-  ctx.strokeStyle="red"; ctx.lineWidth=4;
-  ctx.beginPath(); ctx.moveTo(fx,0); ctx.lineTo(fx,h); ctx.stroke();
-  ctx.restore();
-}
-function drawGuides(w,h){
-  const y=h*DIR_Y;
-  ctx.strokeStyle="red"; ctx.lineWidth=4;
-  ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
-  drawArrowOnLine(w,y,!isLeftHanded());
-  drawBallAndFaceLine(w,h);
-  const z=getZone(w,h);
-  ctx.strokeStyle="rgba(255,255,255,.8)";
-  ctx.lineWidth=3;
-  ctx.strokeRect(z.x,z.y,z.w,z.h);
-  drawStartZone(w, h);
-}
-function drawRect(corners, color, w=5){
-  if(!corners) return;
-  ctx.save();
-  ctx.strokeStyle=color; ctx.lineWidth=w; ctx.lineJoin="round";
-  ctx.beginPath();
-  ctx.moveTo(corners[0].x,corners[0].y);
-  for(let i=1;i<4;i++) ctx.lineTo(corners[i].x,corners[i].y);
-  ctx.closePath(); ctx.stroke();
-  ctx.restore();
-}
-function drawFaceLine(center, angle, len=110, color="rgba(0,255,0,0.95)", w=6){
-  if(!center || angle==null) return;
-  const L=len/2;
-  const x1=center.x - Math.cos(angle)*L;
-  const y1=center.y - Math.sin(angle)*L;
-  const x2=center.x + Math.cos(angle)*L;
-  const y2=center.y + Math.sin(angle)*L;
-  ctx.save();
-  ctx.strokeStyle=color; ctx.lineWidth=w; ctx.lineCap="round";
-  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-  ctx.restore();
-}
 
-/* ---------- OFFSCREEN ---------- */
-const off=document.createElement("canvas");
-const offCtx=off.getContext("2d",{willReadFrequently:true});
-
-function grab(){
-  off.width=video.videoWidth;
-  off.height=video.videoHeight;
-  offCtx.drawImage(video,0,0);
-  return offCtx.getImageData(0,0,off.width,off.height);
-}
-
-/* ---------- ROI helpers ---------- */
-function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-function computeROI(z, lastCenter){
-  if(!lastCenter) return {x0:z.x, y0:z.y, x1:z.x+z.w, y1:z.y+z.h};
-  const x0=clamp(lastCenter.x-ROI_PAD, z.x, z.x+z.w);
-  const x1=clamp(lastCenter.x+ROI_PAD, z.x, z.x+z.w);
-  const y0=clamp(lastCenter.y-ROI_PAD, z.y, z.y+z.h);
-  const y1=clamp(lastCenter.y+ROI_PAD, z.y, z.y+z.h);
-  return {x0,y0,x1,y1};
-}
-
-/* =========================================================
-   DETECT HEAD RECTANGLE — soft ball-centre weighting
-   ========================================================= */
-function detectHeadRectangle(bg, fr, z, useGate, lastCenter){
-  const w=bg.width, h=bg.height;
-  const b=ballInfo(w,h);
-  const yLine=h*DIR_Y;
-
-  const bandY0=Math.max(z.y, yLine-HEAD_BAND_HALF_PX);
-  const bandY1=Math.min(z.y+z.h, yLine+HEAD_BAND_HALF_PX);
-
-  const roi=computeROI({x:z.x,y:bandY0,w:z.w,h:(bandY1-bandY0)}, lastCenter);
-  const xMin=roi.x0, xMax=roi.x1;
-  const yMin=roi.y0, yMax=roi.y1;
-
-  const gridW = Math.max(1, Math.floor((xMax-xMin)/STEP));
-  const gridH = Math.max(1, Math.floor((yMax-yMin)/STEP));
-  /* grid now stores a WEIGHT (float 0…1) instead of a binary flag */
-  const grid = new Float32Array(gridW*gridH);
-
-  let idx=0;
-  for(let gy=0; gy<gridH; gy++){
-    const y=yMin + gy*STEP;
-    for(let gx=0; gx<gridW; gx++, idx++){
-      const x=xMin + gx*STEP;
-
-      /* gate filter (unchanged logic) */
-      if(useGate && !passesTriggerGate(x,w,h)) continue;
-
-      const i=(Math.floor(y)*w+Math.floor(x))*4;
-      const d=(Math.abs(fr.data[i]-bg.data[i])+
-               Math.abs(fr.data[i+1]-bg.data[i+1])+
-               Math.abs(fr.data[i+2]-bg.data[i+2]))/3;
-      if(d<=DIFF_THR) continue;
-
-      const r=fr.data[i], g=fr.data[i+1], bl=fr.data[i+2];
-      const luma = 0.2126*r + 0.7152*g + 0.0722*bl;
-      if(luma > LUMA_IGNORE_WHITE) continue;
-
-      /* KEY CHANGE: apply soft weight near ball centre instead of hard skip */
-      grid[idx] = ballWeight(x, y, b);
-    }
+/* ─── RESET ─── */
+function reset() {
+  state = S.IDLE;
+  if (loopId) {
+    if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) video.cancelVideoFrameCallback(loopId);
+    else cancelAnimationFrame(loopId);
+    loopId = null;
   }
-
-  /* ---------- connected-component search ---------- */
-  /* We still need a binary "is this pixel part of a blob" decision for BFS,
-   * so treat any weight > 0 as present.  The weight is used later when
-   * scoring blobs so the centre pixels are counted but carry less mass. */
-  const visited=new Uint8Array(gridW*gridH);
-  let best=null;
-
-  for(let i=0;i<grid.length;i++){
-    if(grid[i] === 0 || visited[i]) continue;
-
-    const q=[i]; visited[i]=1;
-    const comp=[];
-    let compWeight = 0; /* accumulated weight for this component */
-
-    for(let qi=0; qi<q.length; qi++){
-      const cur=q[qi];
-      comp.push(cur);
-      compWeight += grid[cur];
-
-      const gx=cur%gridW;
-      const gy=(cur/gridW)|0;
-
-      const n1=cur-1, n2=cur+1, n3=cur-gridW, n4=cur+gridW;
-      if(gx>0       && grid[n1]>0 && !visited[n1]){visited[n1]=1;q.push(n1);}
-      if(gx<gridW-1 && grid[n2]>0 && !visited[n2]){visited[n2]=1;q.push(n2);}
-      if(gy>0       && grid[n3]>0 && !visited[n3]){visited[n3]=1;q.push(n3);}
-      if(gy<gridH-1 && grid[n4]>0 && !visited[n4]){visited[n4]=1;q.push(n4);}
-    }
-
-    /* use weighted pixel count for the minimum-blob test */
-    if(compWeight < MIN_BLOB_PX) continue;
-
-    let score = compWeight;   /* score is now weight-based, not raw count */
-    if(lastCenter){
-      let sx=0,sy=0;
-      for(const ci of comp){ sx+=(ci%gridW); sy+=((ci/gridW)|0); }
-      const cxg=sx/comp.length, cyg=sy/comp.length;
-      const cx=xMin + cxg*STEP, cy=yMin + cyg*STEP;
-      const dx=cx-lastCenter.x, dy=cy-lastCenter.y;
-      const dist=Math.hypot(dx,dy);
-      score = score - dist*0.25;
-    }
-    if(!best || score>best.score) best={score, comp};
-  }
-
-  if(!best) return null;
-
-  /* ---------- PCA / bounding rect (unchanged geometry) ---------- */
-  const points=[];
-  let sx=0,sy=0;
-  for(const ci of best.comp){
-    const gx=ci%gridW;
-    const gy=(ci/gridW)|0;
-    const x=xMin + gx*STEP;
-    const y=yMin + gy*STEP;
-    points.push({x,y});
-    sx+=x; sy+=y;
-  }
-  const n=points.length;
-  const cx=sx/n, cy=sy/n;
-
-  let sxx=0, syy=0, sxy=0;
-  for(const p of points){
-    const dx=p.x-cx, dy=p.y-cy;
-    sxx+=dx*dx; syy+=dy*dy; sxy+=dx*dy;
-  }
-  const theta=0.5*Math.atan2(2*sxy, (sxx-syy));
-  const ux=Math.cos(theta), uy=Math.sin(theta);
-  const vx=-uy, vy=ux;
-
-  let minU=1e18,maxU=-1e18,minV=1e18,maxV=-1e18;
-  for(const p of points){
-    const dx=p.x-cx, dy=p.y-cy;
-    const pu=dx*ux + dy*uy;
-    const pv=dx*vx + dy*vy;
-    if(pu<minU)minU=pu; if(pu>maxU)maxU=pu;
-    if(pv<minV)minV=pv; if(pv>maxV)maxV=pv;
-  }
-
-  const lenU=maxU-minU, lenV=maxV-minV;
-  const area=lenU*lenV;
-  const aspect=Math.max(lenU,lenV)/Math.max(1e-9,Math.min(lenU,lenV));
-  if(aspect>MAX_RECT_ASPECT) return null;
-  if(area<MIN_RECT_AREA) return null;
-
-  const cu=(minU+maxU)/2, cv=(minV+maxV)/2;
-  const rcx=cx + cu*ux + cv*vx;
-  const rcy=cy + cu*uy + cv*vy;
-
-  const hu=lenU/2, hv=lenV/2;
-  const corners=[
-    {x:rcx + ux*hu + vx*hv, y:rcy + uy*hu + vy*hv},
-    {x:rcx + ux*hu - vx*hv, y:rcy + uy*hu - vy*hv},
-    {x:rcx - ux*hu - vx*hv, y:rcy - uy*hu - vy*hv},
-    {x:rcx - ux*hu + vx*hv, y:rcy - uy*hu + vy*hv},
-  ];
-
-  const lengthAngle = (lenU>=lenV) ? theta : (theta + Math.PI/2);
-  const faceAngle = lengthAngle + Math.PI/2;
-
-  return {center:{x:rcx,y:rcy}, corners, faceAngle, pixels:n, roi};
-}
-
-/* ---------- motion detection (for capture) ---------- */
-/*
- * diffPixelCount — stillness check.
- * We keep a small hard-skip only for the exact VISUAL ball radius (b.r),
- * not the old 2.4× mask.  The drawn circle is just a guide marker;
- * we don't want the ball graphic itself to trigger "motion".
- * Everything outside that tiny circle is counted normally.
- */
-function diffPixelCount(a,b_img,z){
-  const w=a.width;
-  let count=0;
-  const step=4;
-  const ball = ballInfo(a.width,a.height);
-  const r2 = ball.r * ball.r;          /* only skip the drawn-circle radius */
-  const WHITE_THRESHOLD = 200;
-  for(let y=z.y;y<z.y+z.h;y+=step){
-    for(let x=z.x;x<z.x+z.w;x+=step){
-      const dx = x - ball.cx;
-      const dy = y - ball.cy;
-      if(dx*dx + dy*dy <= r2) continue; /* tiny visual-circle skip only */
-      const i=(Math.floor(y)*w+Math.floor(x))*4;
-      const brightness = (b_img.data[i] + b_img.data[i+1] + b_img.data[i+2]) / 3;
-      if(brightness > WHITE_THRESHOLD) continue;
-      const d=(Math.abs(a.data[i]-b_img.data[i])+
-               Math.abs(a.data[i+1]-b_img.data[i+1])+
-               Math.abs(a.data[i+2]-b_img.data[i+2]))/3;
-      if(d>DIFF_THR) count++;
-    }
-  }
-  return count;
-}
-
-/* ---------- camera ---------- */
-async function startCamera(){
-  const tmp=await navigator.mediaDevices.getUserMedia({video:true});
-  tmp.getTracks().forEach(t=>t.stop());
-
-  const devs=await navigator.mediaDevices.enumerateDevices();
-  const cams=devs.filter(d=>d.kind==="videoinput");
-  const usb=cams.find(d=>/usb|uvc|capture|hdmi|elgato|avermedia|cam link/i.test(d.label));
-  const back=cams.find(d=>/back|rear|environment/i.test(d.label));
-
-  let constraints;
-  if(usb){
-    constraints={video:{deviceId:{exact:usb.deviceId},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:FPS_TARGET}}};
-  }else if(back){
-    constraints={video:{deviceId:{exact:back.deviceId},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:FPS_TARGET}}};
-  }else{
-    constraints={video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:FPS_TARGET}}};
-  }
-
-  const stream=await navigator.mediaDevices.getUserMedia(constraints);
-  video.srcObject=stream;
-  await video.play();
-}
-startCamera();
-
-/* ---------- state & tracking ---------- */
-let state = "IDLE";
-let bg=null;
-let tracking=false;
-let lastRect=null;
-let lastRectHold=0;
-let lastTS=performance.now();
-let fps=0;
-let currentTrackedRect=null;
-
-const messageOverlay = document.getElementById("messageOverlay");
-const messageOverlayCard = document.getElementById("messageOverlayCard");
-
-function show(t, style){
-  const lines = String(t).split("\n");
-  const isCountdown = style === "countdown";
-  const useOverlay = style === "prominent" || style === "countdown";
-  if(useOverlay && messageOverlay && messageOverlayCard){
-    messageOverlayCard.className = "message-overlay-card" + (isCountdown ? " countdown" : "");
-    if(isCountdown && lines.length > 1){
-      messageOverlayCard.innerHTML = "<span>" + lines[0] + "</span><div class=\"sub\">" + lines.slice(1).join("<br>") + "</div>";
-    } else {
-      messageOverlayCard.textContent = t;
-    }
-    messageOverlay.classList.add("show");
-    badge.style.opacity = 0;
-  } else {
-    if(messageOverlay) messageOverlay.classList.remove("show");
-    badge.textContent = t;
-    badge.style.opacity = 1;
-    badge.classList.remove("prominent", "countdown");
-  }
-}
-function hide(){
-  if(messageOverlay) messageOverlay.classList.remove("show");
-  badge.style.opacity = 0;
-  badge.classList.remove("prominent", "countdown");
-}
-
-function beep(){
-  const AC = window.AudioContext || window.webkitAudioContext;
-  if(!AC) return;
-  const a=new AC(), o=a.createOscillator(), g=a.createGain();
-  o.connect(g); g.connect(a.destination);
-  o.frequency.value=880; g.gain.value=0.15;
-  o.start(); setTimeout(()=>{o.stop();a.close();},120);
-}
-
-btn.onclick = async ()=>{
-  if(!video.videoWidth) return;
-  if(state === "ARMED" || state === "RUNNING") return;
-  if(state === "RESULT"){ state="IDLE"; if(resultLabelEl) resultLabelEl.style.opacity=0; }
-  if(!tracking){
-    bg=grab();
-    tracking=true;
-    btn.textContent="STOP";
-    lastRect=null;
-    lastRectHold=0;
-    if(btnAnalyze) btnAnalyze.disabled=false;
-  }else{
-    tracking=false;
-    btn.textContent="START";
-    lastRect=null;
-    lastRectHold=0;
-    if(btnAnalyze) btnAnalyze.disabled=true;
-  }
-};
-
-function updateFPS(){
-  const now=performance.now();
-  const dt=now-lastTS;
-  lastTS=now;
-  const inst=1000/Math.max(1,dt);
-  fps = fps*0.85 + inst*0.15;
-}
-
-/* ---------- render loop ---------- */
-async function loop(){
-  requestAnimationFrame(loop);
-  if(!video.videoWidth) return;
-
-  overlay.width=video.videoWidth;
-  overlay.height=video.videoHeight;
+  refFrame=null; preFrames=[]; postFrames=[];
+  stableCount=0; lockedPos=null; lastPos=null; missedCount=0;
+  CFG.PX_PER_METER = null;
   ctx.clearRect(0,0,overlay.width,overlay.height);
-
-  drawGuides(overlay.width, overlay.height);
-
-  updateFPS();
-
-  if(state === "RESULT"){
-    currentTrackedRect=null;
-    badge.style.opacity=0;
-    return;
-  }
-
-  if(!tracking || !bg){
-    badge.style.opacity = 1;
-    badge.textContent = `READY\nfps: ${fps.toFixed(1)}\nPress START`;
-    currentTrackedRect=null;
-    return;
-  }
-
-  const fr=grab();
-  const z=getZone(fr.width, fr.height);
-
-  const rect = detectHeadRectangle(bg, fr, z, false, lastRect ? lastRect.center : null);
-
-  let used = rect;
-  let status="LOCK";
-
-  if(rect){
-    lastRect=rect;
-    lastRectHold=HOLD_LAST_FRAMES;
-  }else{
-    if(lastRectHold>0 && lastRect){
-      lastRectHold--;
-      used=lastRect;
-      status="HOLD";
-    }else{
-      used=null;
-      status="LOST";
-    }
-  }
-
-  currentTrackedRect=used;
-
-  if(used){
-    if(used.roi){
-      ctx.save();
-      ctx.strokeStyle="rgba(0,255,0,0.25)";
-      ctx.lineWidth=3;
-      const rw=used.roi.x1-used.roi.x0, rh=used.roi.y1-used.roi.y0;
-      ctx.strokeRect(used.roi.x0, used.roi.y0, rw, rh);
-      ctx.restore();
-    }
-    drawRect(used.corners, "rgba(0,255,0,0.85)", 6);
-    drawFaceLine(used.center, used.faceAngle, 120, "rgba(255,255,255,0.95)", 6);
-  }
-
-  if(state === "ARMED") return;
-
-  badge.style.opacity = 1;
-  badge.textContent =
-    `${status}  (fps: ${fps.toFixed(1)})\n`+
-    `blob: ${used?used.pixels:0}\n`+
-    `thr:${DIFF_THR} step:${STEP}\n`+
-    `roiPad:${ROI_PAD} hold:${lastRectHold}`;
-}
-loop();
-
-/* ---------- arc: return-only (landscape = X domain) ---------- */
-function findAnchorIdx(centers, yLine){
-  for(let i=0;i<centers.length;i++){
-    if(Math.abs(centers[i].y - yLine) < TOUCH_TOL) return i;
-  }
-  return centers.length ? 0 : -1;
-}
-function findTopIdxAfter(centers, startIdx){
-  const LH = isLeftHanded();
-  let bestIdx = startIdx;
-  let bestX = centers[startIdx].x;
-  for(let i=startIdx;i<centers.length;i++){
-    const x = centers[i].x;
-    if(!LH){ if(x > bestX){ bestX = x; bestIdx = i; } }
-    else{ if(x < bestX){ bestX = x; bestIdx = i; } }
-  }
-  return bestIdx;
-}
-function extractReturnOnly(centers, anchorIdx){
-  if(anchorIdx<0 || centers.length<2) return [];
-  const topIdx = findTopIdxAfter(centers, anchorIdx);
-  const seg = centers.slice(topIdx);
-  const LH = isLeftHanded();
-  const out = [];
-  let lastX = seg[0].x;
-  out.push(seg[0]);
-  for(let i=1;i<seg.length;i++){
-    const x = seg[i].x;
-    if(!LH){ if(x <= lastX + X_TOL){ out.push(seg[i]); lastX = Math.min(lastX, seg[i].x); } }
-    else{ if(x >= lastX - X_TOL){ out.push(seg[i]); lastX = Math.max(lastX, seg[i].x); } }
-  }
-  return out;
-}
-function sampleYAtX_Monotone(points, xq, LH){
-  for(let i=1;i<points.length;i++){
-    const a=points[i-1], b=points[i];
-    if(!LH){ if(a.x >= xq && xq >= b.x){ const t=(xq-a.x)/(b.x-a.x||1e-9); return a.y+t*(b.y-a.y); } }
-    else{ if(a.x <= xq && xq <= b.x){ const t=(xq-a.x)/(b.x-a.x||1e-9); return a.y+t*(b.y-a.y); } }
-  }
-  return null;
-}
-function computeAverageArcXDomain(returnArcs){
-  const LH = isLeftHanded();
-  if(returnArcs.length < 2) return null;
-  const starts = returnArcs.map(a=>a[0].x);
-  const ends   = returnArcs.map(a=>a[a.length-1].x);
-  let startX, endX;
-  if(!LH){ startX=Math.max(...starts); endX=Math.min(...ends); if(!(startX>endX)) return null; }
-  else{ startX=Math.min(...starts); endX=Math.max(...ends); if(!(endX>startX)) return null; }
-  const avg=[];
-  for(let i=0;i<AVG_SAMPLES;i++){
-    const t=i/(AVG_SAMPLES-1);
-    const xq = startX + (endX-startX)*t;
-    let sy=0, n=0;
-    for(const arc of returnArcs){
-      const y = sampleYAtX_Monotone(arc, xq, LH);
-      if(y!=null){ sy+=y; n++; }
-    }
-    if(n>=2) avg.push({x:xq, y:sy/n});
-  }
-  if(!LH) avg.sort((a,b)=>b.x-a.x);
-  else avg.sort((a,b)=>a.x-b.x);
-  return avg.length>=2 ? avg : null;
-}
-function classifyArcAgainstRedLine(avgArc, w, h){
-  if(!avgArc || avgArc.length < 4) return { label: "Straight", maxDeviation: 0, chordAlongLine: 0, ratio: 0 };
-  const redY = h * DIR_Y;
-  let maxDeviation = 0;
-  let minX = 1e9, maxX = -1e9;
-  for(const p of avgArc){
-    const dev = Math.abs(p.y - redY);
-    if(dev > maxDeviation) maxDeviation = dev;
-    if(p.x < minX) minX = p.x;
-    if(p.x > maxX) maxX = p.x;
-  }
-  const chordAlongLine = Math.max(1, maxX - minX);
-  const ratio = maxDeviation / chordAlongLine;
-  let label = "Straight";
-  if(ratio >= 0.050) label = "Strong Arc";
-  else if(ratio >= 0.020) label = "Slight Arc";
-  return { label, maxDeviation, chordAlongLine, ratio };
+  metrics.classList.remove('show');
+  document.getElementById('btnRef').disabled   = false;
+  document.getElementById('btnTrack').disabled = true;
+  document.getElementById('btnReset').disabled = true;
+  setStatus('Reset\nPress CAPTURE REFERENCE');
+  toast('Reset — capture a new reference frame');
 }
 
-function getTrainingData(){
-  try{ const raw = localStorage.getItem(ARC_TRAINING_KEY); return raw ? JSON.parse(raw) : []; }
-  catch(e){ return []; }
-}
-function addTrainingSample(sample){
-  const data = getTrainingData();
-  data.push({ ...sample, timestamp: Date.now() });
-  localStorage.setItem(ARC_TRAINING_KEY, JSON.stringify(data));
-  return data.length;
-}
-function exportTrainingData(){
-  const data = getTrainingData();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "arc-training-data.json";
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-/* ---------- capture one putt (WITH START ZONE LOGIC) ---------- */
-async function captureOnePutt(i){
-  state="ARMED";
-  btn.disabled=true;
-  if(btnAnalyze) btnAnalyze.disabled=true;
-
-  const captureBg=grab();
-  const z=getZone(captureBg.width, captureBg.height);
-  const yLine=captureBg.height*DIR_Y;
-  let lastR = lastRect;
-  let lastRH = lastRectHold;
-
-  show(`Putt ${i+1} of ${PUTTS_TARGET}\nPlace putter in START ZONE\nThen hold still`, "prominent");
-
-  let stillStart=null, prev=captureBg;
-  while(true){
-    await sleep(120);
-    const now=grab();
-    const rect = detectHeadRectangle(bg, now, z, false, lastR ? lastR.center : null);
-    if(rect){ lastR=rect; lastRH=HOLD_LAST_FRAMES; currentTrackedRect=rect; }
-    else{
-      if(lastRH>0 && lastR){ lastRH--; currentTrackedRect=lastR; }
-      else currentTrackedRect=null;
-    }
-    
-    const inStartZone = rect && isInsideStartZone(rect.center, captureBg.width, captureBg.height);
-    const d=diffPixelCount(prev,now,z);
-    
-    if(inStartZone && d<STILL_PIXEL_COUNT){
-      if(!stillStart) stillStart=performance.now();
-      const elapsed=performance.now()-stillStart;
-      show(`Hold still in START ZONE…\n${(elapsed/1000).toFixed(1)} / ${(STILL_MS/1000).toFixed(1)} sec`, "prominent");
-      if(elapsed>STILL_MS) break;
-    } else {
-      stillStart=null;
-      if(!inStartZone && rect){
-        show(`Putt ${i+1} of ${PUTTS_TARGET}\nMove putter to START ZONE`, "prominent");
-      } else {
-        show(`Putt ${i+1} of ${PUTTS_TARGET}\nPlace putter in START ZONE\nThen hold still`, "prominent");
-      }
-    }
-    prev=now;
-  }
-
-  beep();
-  
-  const countdownSteps = Math.ceil(COUNTDOWN_DURATION / 100);
-  const stepDuration = COUNTDOWN_DURATION / countdownSteps;
-  
-  for(let step = countdownSteps; step > 0; step--){
-    show(`${step}\nGet ready`, "countdown");
-    await sleep(stepDuration);
-  }
-  show("GO!\nPutt!", "countdown");
-  await sleep(200);
-
-  show(`Recording!\nPutt ${i+1} of ${PUTTS_TARGET}`, "prominent");
-
-  const frames=[]; const rectangles=[];
-  const t0=performance.now();
-  lastR=null; lastRH=0;
-  while(performance.now()-t0<RECORD_MS){
-    const fr=grab();
-    frames.push(fr);
-    const rect = detectHeadRectangle(bg, fr, z, false, lastR ? lastR.center : null);
-    if(rect){ lastR=rect; lastRH=HOLD_LAST_FRAMES; rectangles.push(rect); }
-    else{
-      if(lastRH>0 && lastR){ lastRH--; rectangles.push(lastR); }
-      else rectangles.push(null);
-    }
-    await sleep(1000/FPS_TARGET);
-  }
-
-  const rawCenters = rectangles.map(r=>r?r.center:null).filter(Boolean);
-  const anchorIdx = findAnchorIdx(rawCenters, yLine);
-  const returnPts = extractReturnOnly(rawCenters, anchorIdx);
-
-  show(`Saved!\nPutt ${i+1} of ${PUTTS_TARGET}`, "prominent");
-  await sleep(450);
-  hide();
-  currentTrackedRect=null;
-
-  return { captureBg, z, yLine, frames, rectangles, rawCenters, returnPts };
-}
-
-async function runThree(){
-  show("Get ready\nPlace putter in START ZONE\nFirst putt in 2 sec…", "prominent");
-  await sleep(2200);
-  hide();
-
-  const results=[];
-  for(let i=0;i<PUTTS_TARGET;i++){
-    results.push(await captureOnePutt(i));
-    
-    if(i<PUTTS_TARGET-1){
-      show(`Putt ${i+1} complete!\nRemove putter from frame\nfor 2 seconds...`, "prominent");
-      await sleep(2000);
-      bg = grab();
-      lastRect = null;
-      lastRectHold = 0;
-      beep();
-      show(`Background refreshed!\nNext putt: ${i+2} of ${PUTTS_TARGET}\nReady when you are`, "prominent");
-      await sleep(1500);
-      hide();
-    }
-  }
-  return results;
-}
-
-function frameToCanvas(img){
-  const c=document.createElement("canvas");
-  c.width=img.width; c.height=img.height;
-  c.getContext("2d").putImageData(img,0,0);
-  return c;
-}
-
-function drawPolyline(points, strokeStyle, lineWidth){
-  if(!points || points.length<2) return;
-  ctx.save();
-  ctx.strokeStyle=strokeStyle; ctx.lineWidth=lineWidth;
-  ctx.lineCap="round"; ctx.lineJoin="round";
-  ctx.beginPath();
-  ctx.moveTo(points[0].x, points[0].y);
-  for(let i=1;i<points.length;i++) ctx.lineTo(points[i].x, points[i].y);
-  ctx.stroke();
-  ctx.restore();
-}
-
-async function renderResultReplay(all){
-  state="RESULT";
-  btn.disabled=false;
-  if(btnAnalyze) btnAnalyze.disabled=false;
-  hide();
-
-  const last=all[all.length-1];
-  const whiteArcs = all.map(p=>p.returnPts).filter(a=>a && a.length>=2);
-  const avgArc = computeAverageArcXDomain(whiteArcs);
-  const arcResult = avgArc ? classifyArcAgainstRedLine(avgArc, overlay.width, overlay.height) : { label: "Straight", maxDeviation: 0, chordAlongLine: 0, ratio: 0 };
-  const arcLabel = arcResult.label;
-
-  if(resultLabelEl){ resultLabelEl.textContent = arcLabel; resultLabelEl.style.opacity = 1; }
-
-  const replayFrames = last.frames.map(frameToCanvas);
-  const replayRects = last.rectangles;
-
-  const drawScene = (frameCanvas, rectIdx, showIndividualArcs=false, avgArcProgress=null)=>{
-    ctx.clearRect(0,0,overlay.width,overlay.height);
-    ctx.drawImage(frameCanvas, 0, 0);
-    if(showIndividualArcs){
-      for(const arc of whiteArcs) drawPolyline(arc, "rgba(255,255,255,0.9)", 6);
-    }
-    if(avgArc && avgArcProgress !== null){
-      const pointsToDraw = Math.min(avgArcProgress, avgArc.length);
-      if(pointsToDraw >= 2){
-        const partialArc = avgArc.slice(0, pointsToDraw);
-        drawPolyline(partialArc, "rgba(203,0,0,1)", 7);
-      }
-    }
-    if(replayRects[rectIdx]){
-      drawRect(replayRects[rectIdx].corners, "rgba(203,0,0,1)", 6);
-      drawFaceLine(replayRects[rectIdx].center, replayRects[rectIdx].faceAngle, 120, "rgba(255,255,255,0.95)", 6);
-    }
-    drawGuides(last.captureBg.width, last.captureBg.height);
-  };
-
-  const total = replayFrames.length;
-  
-  for(let i=0;i<total;i++){
-    drawScene(replayFrames[i], i, true, null);
-    await sleep(1000/REPLAY_FPS);
-  }
-  
-  if(avgArc && avgArc.length >= 2){
-    const avgDrawFrames = 60;
-    const pointsPerFrame = avgArc.length / avgDrawFrames;
-    for(let frame=0; frame<=avgDrawFrames; frame++){
-      const progress = Math.ceil(frame * pointsPerFrame);
-      drawScene(replayFrames[total-1], total-1, true, progress);
-      await sleep(1000/30);
-    }
-  } else {
-    drawScene(replayFrames[total-1], total-1, true, avgArc ? avgArc.length : 0);
-  }
-
-  const stats = `deviation ${arcResult.maxDeviation.toFixed(0)}px · chord ${arcResult.chordAlongLine.toFixed(0)}px · ratio ${(arcResult.ratio*100).toFixed(2)}%`;
-  let arcSvg = "";
-  if(avgArc && avgArc.length>=2){
-    const xs=avgArc.map(p=>p.x), ys=avgArc.map(p=>p.y);
-    const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
-    const pad=8, w=200, h=56;
-    const scaleX=(maxX-minX)>0?(w-2*pad)/(maxX-minX):1;
-    const scaleY=(maxY-minY)>0?(h-2*pad)/(maxY-minY):1;
-    const scale=Math.min(scaleX,scaleY);
-    const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
-    const toSx=x=>w/2+(x-cx)*scale;
-    const toSy=y=>h/2+(y-cy)*scale;
-    const lineY=h/2;
-    const pathD=avgArc.map((p,i)=>(i?"L":"M")+toSx(p.x).toFixed(1)+","+toSy(p.y).toFixed(1)).join(" ");
-    arcSvg=`<svg class="arc-results-viz" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet"><line x1="0" y1="${lineY}" x2="${w}" y2="${lineY}" stroke="rgba(239,68,68,.6)" stroke-width="2"/><path d="${pathD}" fill="none" stroke="rgba(203,0,0,1)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  }
-  const trainingCount = getTrainingData().length;
-
-  const content = document.createElement("div");
-  content.className = "arc-results-card";
-  content.innerHTML = `
-    <div class="arc-results-title">Arc analysis complete</div>
-    <div class="arc-results-sub">3 putts analyzed. Path vs horizontal reference line.</div>
-    <div class="arc-results-main">Detected: ${arcLabel}</div>
-    <div class="arc-results-stats">${stats}</div>
-    ${arcSvg}
-    <div class="arc-training-label">What did you actually do? (for training)</div>
-    <div class="arc-training-btns">
-      <button type="button" class="arc-training-btn" data-label="Straight">Straight</button>
-      <button type="button" class="arc-training-btn" data-label="Slight Arc">Slight Arc</button>
-      <button type="button" class="arc-training-btn" data-label="Strong Arc">Strong Arc</button>
-    </div>
-    <div class="arc-saved-msg" id="arcSavedMsg"></div>
-    <button type="button" class="arc-export-btn">Export training data (${trainingCount} samples)</button>
-    <div class="arc-results-footer">Tap outside to close. Press START/STOP for tracking.</div>
-  `;
-  content.onclick = (e)=>e.stopPropagation();
-  arcResultsOverlay.innerHTML = "";
-  arcResultsOverlay.appendChild(content);
-  arcResultsOverlay.classList.add("show");
-  arcResultsOverlay.onclick = ()=> arcResultsOverlay.classList.remove("show");
-
-  const savedMsg = content.querySelector("#arcSavedMsg");
-  content.querySelectorAll(".arc-training-btn").forEach(btnEl=>{
-    btnEl.addEventListener("click", ()=>{
-      const userLabel = btnEl.getAttribute("data-label");
-      addTrainingSample({ detectedLabel: arcLabel, userLabel, maxDeviation: arcResult.maxDeviation, chordAlongLine: arcResult.chordAlongLine, ratio: arcResult.ratio, ratioPct: arcResult.ratio*100 });
-      content.querySelectorAll(".arc-training-btn").forEach(b=>b.classList.remove("selected"));
-      btnEl.classList.add("selected");
-      const n = getTrainingData().length;
-      if(savedMsg) savedMsg.textContent = `Saved. ${n} sample${n!==1?"s":""} total.`;
-      content.querySelector(".arc-export-btn").textContent = `Export training data (${n} samples)`;
-    });
-  });
-  content.querySelector(".arc-export-btn").addEventListener("click", ()=> exportTrainingData());
-}
-
-btnAnalyze.addEventListener("click", async ()=>{
-  if(!tracking || !bg || state !== "IDLE") return;
-  state = "RUNNING";
-  btnAnalyze.disabled = true;
-  try{
-    const results = await runThree();
-    await renderResultReplay(results);
-  }finally{
-    btnAnalyze.disabled = false;
-  }
+/* ─── EXPOSURE SLIDER ─── */
+expSlider.addEventListener('input', () => {
+  const ev = parseFloat(expSlider.value);
+  applyExposure(ev);
 });
+
+/* ─── BUTTONS ─── */
+document.getElementById('btnCamera').addEventListener('click', startCamera);
+document.getElementById('btnRef').addEventListener('click', () => {
+  captureReference();
+  document.getElementById('btnRef').disabled = false; // keep available
+});
+document.getElementById('btnTrack').addEventListener('click', startTracking);
+document.getElementById('btnReset').addEventListener('click', reset);
+
+/* ─── BOOT ─── */
+renderLoop();
 </script>
+
 </body>
 </html>
