@@ -4,44 +4,52 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
-<title>Golf Ball Tracker v2</title>
+<title>Golf Ball Tracker</title>
 <style>
 :root {
   --black: #0c0c0c;
+  --steel: #1f1f1f;
   --red: #e7222a;
   --darkred: #ba1e1e;
   --green: #00ff88;
   --orange: #ff9500;
-  --safe-top: env(safe-area-inset-top);
+  --safe-top:    env(safe-area-inset-top);
   --safe-bottom: env(safe-area-inset-bottom);
-  --safe-left: env(safe-area-inset-left);
-  --safe-right: env(safe-area-inset-right);
+  --safe-left:   env(safe-area-inset-left);
+  --safe-right:  env(safe-area-inset-right);
 }
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
-  background: var(--black);
-  color: #fff;
-  font-family: system-ui, -apple-system, sans-serif;
-  height: 100%;
-  overflow: hidden;
-  touch-action: manipulation;
-}
-#wrap {
-  position: fixed;
-  inset: 0;
-  background: var(--black);
-}
-video, #overlay {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-#overlay { pointer-events: none; }
 
-/* ── STATUS BADGE ── */
-#status {
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+background: var(–black);
+color: #fff;
+font-family: system-ui, -apple-system, sans-serif;
+height: 100%;
+overflow: hidden;
+touch-action: manipulation;
+-webkit-tap-highlight-color: transparent;
+}
+
+#wrap {
+position: fixed;
+inset: 0;
+background: var(–black);
+overflow: hidden;
+}
+
+/* ── VIDEO + CANVAS ── */
+video, #overlay {
+position: absolute;
+inset: 0;
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+#overlay { pointer-events: none; z-index: 2; }
+
+/* ── STATUS BADGE (top-left) ── */
+#statusBadge {
 position: absolute;
 top: calc(14px + var(–safe-top));
 left: calc(14px + var(–safe-left));
@@ -53,29 +61,13 @@ font-size: 12px;
 font-weight: 700;
 white-space: pre-line;
 line-height: 1.5;
-z-index: 20;
-max-width: 220px;
+z-index: 10;
+max-width: 190px;
+pointer-events: none;
 }
 
-/* ── EXPOSURE HINT ── */
-#exposureHint {
-position: absolute;
-top: calc(14px + var(–safe-top));
-right: calc(14px + var(–safe-right));
-background: rgba(231,34,42,0.15);
-border: 1px solid rgba(231,34,42,0.4);
-border-radius: 10px;
-padding: 10px 14px;
-font-size: 11px;
-font-weight: 700;
-line-height: 1.6;
-z-index: 20;
-display: none;
-}
-#exposureHint.show { display: block; }
-
-/* ── METRICS ── */
-#metrics {
+/* ── METRICS PANEL (top-right) ── */
+#metricsPanel {
 position: absolute;
 top: calc(14px + var(–safe-top));
 right: calc(14px + var(–safe-right));
@@ -83,16 +75,17 @@ background: rgba(20,20,20,0.92);
 border: 1px solid rgba(255,255,255,0.1);
 border-radius: 10px;
 padding: 12px 14px;
-z-index: 20;
+z-index: 10;
 display: none;
-min-width: 170px;
+min-width: 160px;
+pointer-events: none;
 }
-#metrics.show { display: block; }
+#metricsPanel.show { display: block; }
 .mrow {
 display: flex;
 justify-content: space-between;
 align-items: baseline;
-gap: 12px;
+gap: 10px;
 margin-bottom: 7px;
 }
 .mrow:last-child { margin-bottom: 0; }
@@ -100,19 +93,99 @@ margin-bottom: 7px;
 font-size: 9px;
 font-weight: 800;
 text-transform: uppercase;
-letter-spacing: .1em;
+letter-spacing: .12em;
 color: rgba(255,255,255,0.5);
 }
 .mval {
-font-size: 15px;
+font-size: 14px;
 font-weight: 900;
 font-variant-numeric: tabular-nums;
 color: #fff;
 }
-.mval.green { color: var(–green); }
+.mval.green  { color: var(–green); }
 .mval.orange { color: var(–orange); }
 
-/* ── BUTTONS ── */
+/* ── DETECTION BOX (DOM element, centred in the viewport) ── */
+#detectionBox {
+position: absolute;
+width: 180px;
+height: 180px;
+left: 50%;
+top: 50%;
+transform: translate(-50%, -50%);
+border: 2px dashed rgba(255,255,255,0.55);
+border-radius: 12px;
+z-index: 5;
+pointer-events: none;
+display: none;            /* shown by JS */
+transition: border-color .3s, border-style .3s;
+}
+#detectionBox.detecting {
+border-color: var(–red);
+border-style: solid;
+animation: pulseRed 1.5s ease-in-out infinite;
+}
+#detectionBox.locked {
+border-color: var(–green);
+border-style: solid;
+animation: pulseGreen 2s ease-in-out infinite;
+}
+#boxLabel {
+position: absolute;
+top: -26px;
+left: 50%;
+transform: translateX(-50%);
+font-size: 10px;
+font-weight: 900;
+letter-spacing: .14em;
+text-transform: uppercase;
+color: rgba(255,255,255,0.85);
+white-space: nowrap;
+}
+
+@keyframes pulseRed {
+0%,100% { box-shadow: 0 0 0 0 rgba(231,34,42,0.4); }
+50%      { box-shadow: 0 0 18px 6px rgba(231,34,42,0.2); }
+}
+@keyframes pulseGreen {
+0%,100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.4); opacity:1; }
+50%      { box-shadow: 0 0 18px 6px rgba(0,255,136,0.25); opacity:.85; }
+}
+
+/* ── EXPOSURE SLIDER (above buttons, hidden until camera on) ── */
+#exposureRow {
+position: absolute;
+bottom: calc(252px + var(–safe-bottom));
+left: 50%;
+transform: translateX(-50%);
+display: none;
+flex-direction: column;
+align-items: center;
+gap: 5px;
+z-index: 20;
+background: rgba(20,20,20,0.9);
+border: 1px solid rgba(255,255,255,.1);
+border-radius: 12px;
+padding: 10px 18px;
+width: 260px;
+}
+#exposureRow.show { display: flex; }
+#exposureRow label {
+font-size: 10px;
+font-weight: 800;
+text-transform: uppercase;
+letter-spacing: .1em;
+color: rgba(255,255,255,.55);
+}
+#expSlider { width: 100%; accent-color: var(–red); }
+#expVal {
+font-size: 11px;
+font-weight: 800;
+color: var(–orange);
+}
+
+/* ── BUTTON STACK ── */
+/*  All buttons centred horizontally, spaced 56px apart from the bottom  */
 .btn {
 position: absolute;
 left: 50%;
@@ -120,73 +193,62 @@ transform: translateX(-50%);
 border: none;
 font-size: 14px;
 font-weight: 800;
-letter-spacing: .4px;
+letter-spacing: .5px;
 text-transform: uppercase;
-padding: 13px 28px;
+padding: 14px 32px;
 border-radius: 999px;
 cursor: pointer;
-z-index: 100;
+z-index: 30;
 pointer-events: auto;
 transition: opacity .15s, transform .15s;
 white-space: nowrap;
+min-width: 200px;
+text-align: center;
 }
 .btn:active:not(:disabled) { transform: translateX(-50%) scale(0.97); }
 .btn:disabled { opacity: .35; cursor: not-allowed; }
+
 .btn-primary {
 background: linear-gradient(135deg, var(–red), var(–darkred));
 color: #fff;
 box-shadow: 0 4px 20px rgba(231,34,42,.4);
-bottom: calc(20px + var(–safe-bottom));
 }
-.btn-ghost {
+.btn-secondary {
 background: rgba(30,30,30,0.92);
-border: 1px solid rgba(255,255,255,.12);
+border: 1px solid rgba(255,255,255,.14);
 color: #fff;
 }
-#btnCamera   { bottom: calc(20px + var(–safe-bottom)); }
-#btnRef      { bottom: calc(76px + var(–safe-bottom)); }
-#btnTrack    { bottom: calc(132px + var(–safe-bottom)); }
-#btnReset    { bottom: calc(188px + var(–safe-bottom)); }
 
-/* ── BRIGHTNESS SLIDER ── */
-#brightnessControl {
+/* Individual button positions — clear 56px gaps */
+#btnCamera  { bottom: calc(20px  + var(–safe-bottom)); }
+#btnRef     { bottom: calc(84px  + var(–safe-bottom)); }
+#btnTrack   { bottom: calc(148px + var(–safe-bottom)); }
+#btnReset   { bottom: calc(212px + var(–safe-bottom)); }
+
+/* ── DARK WARNING ── */
+#darkWarn {
 position: absolute;
-bottom: calc(250px + var(–safe-bottom));
+bottom: calc(280px + var(–safe-bottom));
 left: 50%;
 transform: translateX(-50%);
-display: none;
-flex-direction: column;
-align-items: center;
-gap: 6px;
-z-index: 100;
-background: rgba(20,20,20,0.9);
-border: 1px solid rgba(255,255,255,.1);
-border-radius: 12px;
-padding: 12px 20px;
-width: 260px;
-}
-#brightnessControl.show { display: flex; }
-#brightnessControl label {
+background: rgba(255,149,0,.15);
+border: 1px solid var(–orange);
+border-radius: 8px;
+padding: 7px 14px;
 font-size: 11px;
 font-weight: 700;
-text-transform: uppercase;
-letter-spacing: .1em;
-color: rgba(255,255,255,.6);
-}
-#brightnessSlider {
-width: 100%;
-accent-color: var(–red);
-}
-#brightnessValue {
-font-size: 12px;
-font-weight: 800;
 color: var(–orange);
+z-index: 20;
+display: none;
+white-space: nowrap;
+pointer-events: none;
 }
+#darkWarn.show { display: block; }
 
 /* ── TOAST ── */
 .toast {
 position: fixed;
-bottom: calc(300px + var(–safe-bottom));
+bottom: calc(310px + var(–safe-bottom));
 left: 50%;
 transform: translateX(-50%);
 background: rgba(20,20,20,.96);
@@ -195,33 +257,15 @@ border-radius: 10px;
 padding: 10px 18px;
 font-size: 13px;
 font-weight: 700;
-z-index: 1000;
+z-index: 100;
 pointer-events: none;
 animation: slideUp .25s ease-out;
-}
-@keyframes slideUp {
-from { opacity:0; transform: translate(-50%,14px); }
-to   { opacity:1; transform: translate(-50%,0); }
-}
-
-/* ── DEBUG CANVAS BRIGHTNESS WARNING ── */
-#darkWarning {
-position: absolute;
-bottom: calc(310px + var(–safe-bottom));
-left: 50%;
-transform: translateX(-50%);
-background: rgba(255,149,0,.2);
-border: 1px solid var(–orange);
-border-radius: 8px;
-padding: 8px 16px;
-font-size: 11px;
-font-weight: 700;
-color: var(–orange);
-z-index: 20;
-display: none;
 white-space: nowrap;
 }
-#darkWarning.show { display: block; }
+@keyframes slideUp {
+from { opacity:0; transform: translate(-50%,12px); }
+to   { opacity:1; transform: translate(-50%,0); }
+}
 </style>
 
 </head>
@@ -230,133 +274,152 @@ white-space: nowrap;
   <video id="video" playsinline autoplay muted></video>
   <canvas id="overlay"></canvas>
 
-  <div id="status">Press START CAMERA</div>
-  <div id="exposureHint" class="show">
-    ⚠️ IMAGE TOO DARK?<br>
-    This app uses a very high<br>
-    shutter speed. You need<br>
-    BRIGHT LED lights.<br>
-    Use the slider below ↓
+  <!-- Detection box (shown after camera starts) -->
+
+  <div id="detectionBox">
+    <div id="boxLabel">BALL AREA</div>
   </div>
 
-  <div id="metrics">
-    <div class="mrow"><span class="mlabel">FRAMES</span><span class="mval" id="mFrames">0</span></div>
-    <div class="mrow"><span class="mlabel">BALL SPEED</span><span class="mval green" id="mSpeed">--</span></div>
-    <div class="mrow"><span class="mlabel">ANGLE</span><span class="mval" id="mAngle">--</span></div>
-    <div class="mrow"><span class="mlabel">DIRECTION</span><span class="mval orange" id="mDir">--</span></div>
-    <div class="mrow"><span class="mlabel">DEVIATION</span><span class="mval" id="mDev">--</span></div>
+  <!-- Status top-left -->
+
+  <div id="statusBadge">Press START CAMERA</div>
+
+  <!-- Metrics top-right (hidden until tracking) -->
+
+  <div id="metricsPanel">
+    <div class="mrow"><span class="mlabel">FRAMES</span>   <span class="mval"        id="mFrames">0</span></div>
+    <div class="mrow"><span class="mlabel">BALL SPEED</span><span class="mval green"  id="mSpeed">--</span></div>
+    <div class="mrow"><span class="mlabel">ANGLE</span>     <span class="mval"        id="mAngle">--</span></div>
+    <div class="mrow"><span class="mlabel">DIRECTION</span> <span class="mval orange" id="mDir">--</span></div>
+    <div class="mrow"><span class="mlabel">DEVIATION</span> <span class="mval"        id="mDev">--</span></div>
   </div>
 
-  <div id="darkWarning">⚠️ Frame too dark — increase lighting</div>
+  <!-- Exposure slider (hidden until camera starts) -->
 
-  <div id="brightnessControl">
-    <label>Exposure Compensation</label>
-    <input id="brightnessSlider" type="range" min="-3" max="0" step="0.25" value="-2"/>
-    <span id="brightnessValue">-2.0 EV (high shutter)</span>
+  <div id="exposureRow">
+    <label>Shutter Speed (Exposure)</label>
+    <input id="expSlider" type="range" min="-3" max="0" step="0.25" value="-2"/>
+    <span id="expVal">-2.0 EV — fast shutter ✓</span>
   </div>
 
-<button class="btn btn-primary" id="btnCamera">Start Camera</button>
-<button class="btn btn-ghost" id="btnRef"   disabled>Capture Reference</button>
-<button class="btn btn-ghost" id="btnTrack" disabled>Start Tracking</button>
-<button class="btn btn-ghost" id="btnReset" disabled>Reset</button>
+  <!-- Dark frame warning -->
+
+  <div id="darkWarn">⚠️ Too dark — add more light</div>
+
+  <!-- Button stack — 4 buttons, 56px apart -->
+
+<button class="btn btn-primary"   id="btnCamera">START CAMERA</button>
+<button class="btn btn-secondary" id="btnRef"    disabled>CAPTURE REFERENCE</button>
+<button class="btn btn-secondary" id="btnTrack"  disabled>START TRACKING</button>
+<button class="btn btn-secondary" id="btnReset"  disabled>RESET</button>
 
 </div>
 
 <script>
-/* ═══════════════════════════════════════════
-   THE KEY INSIGHT:
-   Use a very high shutter speed to track
-   golf balls. This results in a darker image
-   but freezes the ball perfectly in each frame.
+/* ══════════════════════════════════════════
+   KEY TECHNIQUE: Very high shutter speed
+   (low exposure EV) freezes the ball as a
+   crisp circle in each 60fps frame.
+   Without this, fast balls blur into smears
+   that fail the circularity check.
 
-   High shutter speed = frozen ball with zero
-   motion blur in every single 60fps frame.
-   The ball is crisp and circular in each frame
-   it appears in — making blob detection reliable.
-
-   Without this, at high speeds the ball becomes
-   a long blur smear that fails circularity checks.
-═══════════════════════════════════════════ */
+   Side-effect: darker image — needs bright
+   LED lighting for best results.
+══════════════════════════════════════════ */
 
 /* ─── CONFIG ─── */
 const CFG = {
-  // Detection thresholds
-  DIFF_THR:       25,    // lower = more sensitive (ball may be slightly diff shade)
-  MIN_BLOB:       8,     // min connected pixels in downsampled grid
+  DIFF_THR:         25,
+  MIN_BLOB:          8,
   MAX_BLOB:       3000,
-  MIN_R_PX:       5,     // min ball radius in pixels
-  MAX_R_PX:       80,    // larger for top-down view
-  MAX_ASPECT:     1.8,   // allow slightly non-circular (top-down angle)
-  STEP:           2,     // sampling step — smaller = more accurate, slower
-
-  // Pre-impact
-  STABLE_FRAMES:  6,     // frames ball must be still to be "locked"
-  STABLE_THRESH:  4,     // max pixel movement to count as stable
-  IMPACT_THRESH:  18,    // pixels of movement = impact detected
-
-  // Post-impact
-  MAX_POST_FRAMES: 12,   // max frames to track after impact
-  MAX_MISSED:      4,    // frames without detection before giving up
-  SEARCH_RADIUS:   350,  // px around last known position
-
-  // Physics
-  PX_PER_METER:   null,  // set during calibration, or estimated from ball size
-  BALL_DIAMETER_M: 0.0427, // real golf ball diameter in metres
+  MIN_R_PX:          5,
+  MAX_R_PX:         80,
+  MAX_ASPECT:      1.8,
+  STEP:              2,
+  STABLE_FRAMES:     6,
+  STABLE_THRESH:     4,
+  IMPACT_THRESH:    18,
+  MAX_POST_FRAMES:  12,
+  MAX_MISSED:        4,
+  SEARCH_RADIUS:   350,
+  PX_PER_METER:   null,
+  BALL_DIAM_M:  0.0427,
 };
 
-/* ─── STATE ─── */
-const S = {
-  IDLE: 0, WAITING_BALL: 1, BALL_LOCKED: 2,
-  IMPACT: 3, TRACKING: 4, DONE: 5
-};
+/* ─── STATES ─── */
+const S = { IDLE:0, WAITING:1, LOCKED:2, TRACKING:3, DONE:4 };
 let state = S.IDLE;
-let refFrame = null;
-let preFrames  = [];   // {x,y,r,t}
+
+/* ─── RUNTIME ─── */
+let refFrame   = null;
+let preFrames  = [];
 let postFrames = [];
-let stableCount = 0;
-let lockedPos   = null; // {x,y,r}
-let lastPos     = null;
-let missedCount = 0;
-let loopId      = null;
-let exposureEV  = -2.0; // default: very fast shutter
+let stableCount= 0;
+let lockedPos  = null;
+let lastPos    = null;
+let missedCount= 0;
+let loopId     = null;
+let imageCapture = null;
+let exposureEV   = -2.0;
 
 /* ─── DOM ─── */
 const video    = document.getElementById('video');
 const overlay  = document.getElementById('overlay');
 const ctx      = overlay.getContext('2d', {willReadFrequently:true});
-const offscreen = document.createElement('canvas');
+const offscreen= document.createElement('canvas');
 const offCtx   = offscreen.getContext('2d', {willReadFrequently:true});
-
-const status   = document.getElementById('status');
-const metrics  = document.getElementById('metrics');
-const darkWarn = document.getElementById('darkWarning');
-const expCtrl  = document.getElementById('brightnessControl');
-const expSlider = document.getElementById('brightnessSlider');
-const expVal   = document.getElementById('brightnessValue');
+const detBox   = document.getElementById('detectionBox');
+const statusEl = document.getElementById('statusBadge');
+const metricsEl= document.getElementById('metricsPanel');
+const darkWarn = document.getElementById('darkWarn');
+const expRow   = document.getElementById('exposureRow');
+const expSlider= document.getElementById('expSlider');
+const expValEl = document.getElementById('expVal');
 
 /* ─── HELPERS ─── */
 function toast(msg) {
-  document.querySelectorAll('.toast').forEach(e=>e.remove());
+  document.querySelectorAll('.toast').forEach(e => e.remove());
   const t = document.createElement('div');
-  t.className = 'toast'; t.textContent = msg;
+  t.className = 'toast';
+  t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(()=>t.remove(), 3000);
+  setTimeout(() => t.remove(), 3000);
 }
-function setStatus(t) { status.textContent = t; }
-function setMetric(id, v) { document.getElementById(id).textContent = v; }
+function setStatus(t)       { statusEl.textContent = t; }
+function setMetric(id, v)   { document.getElementById(id).textContent = v; }
+function showMetrics()       { metricsEl.classList.add('show'); }
+function hideMetrics()       { metricsEl.classList.remove('show'); }
 
-/* ─── WHITE-BALL DETECTOR ─── 
-   Works for both standard and high-shutter (darker) frames.
-   At high shutter speed, white ball still appears bright
-   relative to the (now darker) background.
-   We check absolute brightness AND relative brightness. */
-function isBallPixel(r, g, b, backgroundBrightness) {
-  const brightness = (r * 0.299 + g * 0.587 + b * 0.114);
-  const chroma = Math.max(r,g,b) - Math.min(r,g,b);
-  // Must be white-ish (low saturation)
-  if (chroma > 45) return false;
-  // Absolute: must be reasonably bright
-  if (brightness < 140) return false;
+/* ─── DETECTION BOX HELPERS ─── */
+function showBox(state) {
+  detBox.style.display = 'block';
+  detBox.className = '';             // clear
+  if (state === 'detecting') detBox.classList.add('detecting');
+  if (state === 'locked')    detBox.classList.add('locked');
+  document.getElementById('boxLabel').textContent =
+    state === 'locked' ? 'BALL LOCKED ✓' : 'BALL AREA';
+}
+function hideBox() { detBox.style.display = 'none'; }
+
+/* ─── GET BOX RECT IN VIDEO COORDS ─── */
+function getBoxVideoRect() {
+  const vr = video.getBoundingClientRect();
+  const br = detBox.getBoundingClientRect();
+  const sx = video.videoWidth  / vr.width;
+  const sy = video.videoHeight / vr.height;
+  return {
+    x: (br.left - vr.left) * sx,
+    y: (br.top  - vr.top)  * sy,
+    w: br.width  * sx,
+    h: br.height * sy,
+  };
+}
+
+/* ─── IS WHITE PIXEL ─── */
+function isWhite(r, g, b) {
+  const lum = r*0.299 + g*0.587 + b*0.114;
+  if (lum < 140) return false;
+  if (Math.max(r,g,b) - Math.min(r,g,b) > 45) return false;
   return true;
 }
 
@@ -366,48 +429,40 @@ function grabFrame() {
   return offCtx.getImageData(0, 0, offscreen.width, offscreen.height);
 }
 
-/* ─── CHECK FRAME BRIGHTNESS ─── 
-   Warn user if overall frame is too dark to detect */
+/* ─── BRIGHTNESS CHECK ─── */
 function checkBrightness(frame) {
-  let sum = 0;
-  const step = 20;
-  let count = 0;
-  for (let i = 0; i < frame.data.length; i += step*4) {
+  let sum = 0, n = 0;
+  for (let i = 0; i < frame.data.length; i += 80) {
     sum += (frame.data[i] + frame.data[i+1] + frame.data[i+2]) / 3;
-    count++;
+    n++;
   }
-  const avg = sum / count;
+  const avg = sum / n;
   darkWarn.classList.toggle('show', avg < 30);
   return avg;
 }
 
-/* ─── BLOB DETECTION ─── */
-function findBall(refFrame, curFrame, x0, x1, y0, y1, prevPos) {
-  const w = curFrame.width;
+/* ─── BLOB DETECTOR ─── */
+function findBall(ref, cur, x0, x1, y0, y1, hint) {
+  const W = cur.width;
   const step = CFG.STEP;
-  x0 = Math.max(0, x0|0);  x1 = Math.min(w, x1|0);
-  y0 = Math.max(0, y0|0);  y1 = Math.min(curFrame.height, y1|0);
-
+  x0 = Math.max(0, x0|0);  x1 = Math.min(W, x1|0);
+  y0 = Math.max(0, y0|0);  y1 = Math.min(cur.height, y1|0);
   const gw = Math.max(1, ((x1-x0)/step)|0);
   const gh = Math.max(1, ((y1-y0)/step)|0);
   const grid = new Uint8Array(gw * gh);
 
-  /* diff + white check */
   let idx = 0;
   for (let gy = 0; gy < gh; gy++) {
     const ay = y0 + gy*step;
     for (let gx = 0; gx < gw; gx++, idx++) {
       const ax = x0 + gx*step;
-      const fi = (ay*w + ax)*4;
-      const cr=curFrame.data[fi], cg=curFrame.data[fi+1], cb=curFrame.data[fi+2];
-      const dr=Math.abs(cr-refFrame.data[fi]);
-      const dg=Math.abs(cg-refFrame.data[fi+1]);
-      const db=Math.abs(cb-refFrame.data[fi+2]);
-      if ((dr+dg+db)/3 > CFG.DIFF_THR && isBallPixel(cr,cg,cb)) grid[idx]=1;
+      const fi = (ay*W + ax)*4;
+      const cr=cur.data[fi], cg=cur.data[fi+1], cb=cur.data[fi+2];
+      const d = (Math.abs(cr-ref.data[fi]) + Math.abs(cg-ref.data[fi+1]) + Math.abs(cb-ref.data[fi+2])) / 3;
+      if (d > CFG.DIFF_THR && isWhite(cr,cg,cb)) grid[idx] = 1;
     }
   }
 
-  /* connected components */
   const vis = new Uint8Array(gw*gh);
   let best = null, bestScore = 0;
 
@@ -418,73 +473,54 @@ function findBall(refFrame, curFrame, x0, x1, y0, y1, prevPos) {
       const c=q[qi]; comp.push(c);
       const gx=c%gw, gy=(c/gw)|0;
       const ns=[c-1,c+1,c-gw,c+gw];
-      const ok=[gx>0,gx<gw-1,gy>0,gy<gh-1];
+      const ok=[gx>0, gx<gw-1, gy>0, gy<gh-1];
       for (let n=0;n<4;n++) if(ok[n]&&grid[ns[n]]&&!vis[ns[n]]){vis[ns[n]]=1;q.push(ns[n]);}
     }
-    if (comp.length<CFG.MIN_BLOB||comp.length>CFG.MAX_BLOB) continue;
+    if (comp.length < CFG.MIN_BLOB || comp.length > CFG.MAX_BLOB) continue;
 
     let sx=0,sy=0,mnx=Infinity,mxx=-Infinity,mny=Infinity,mxy=-Infinity;
     for (const c of comp) {
-      const gx=c%gw,gy=(c/gw)|0;
-      sx+=gx;sy+=gy;
-      if(gx<mnx)mnx=gx;if(gx>mxx)mxx=gx;
-      if(gy<mny)mny=gy;if(gy>mxy)mxy=gy;
+      const gx=c%gw, gy=(c/gw)|0;
+      sx+=gx; sy+=gy;
+      if(gx<mnx)mnx=gx; if(gx>mxx)mxx=gx;
+      if(gy<mny)mny=gy; if(gy>mxy)mxy=gy;
     }
-    const cx=x0+(sx/comp.length)*step;
-    const cy=y0+(sy/comp.length)*step;
-    const bw=(mxx-mnx+1)*step, bh=(mxy-mny+1)*step;
-    const radius=Math.max(bw,bh)/2;
-    if (radius<CFG.MIN_R_PX||radius>CFG.MAX_R_PX) continue;
-    const aspect=bw>=bh?bw/bh:bh/bw;
-    if (aspect>CFG.MAX_ASPECT) continue;
+    const cx = x0 + (sx/comp.length)*step;
+    const cy = y0 + (sy/comp.length)*step;
+    const bw = (mxx-mnx+1)*step, bh = (mxy-mny+1)*step;
+    const radius = Math.max(bw,bh)/2;
+    if (radius < CFG.MIN_R_PX || radius > CFG.MAX_R_PX) continue;
+    if ((bw>=bh?bw/bh:bh/bw) > CFG.MAX_ASPECT) continue;
 
     let score = comp.length * (comp.length/(bw*bh));
-    // Bias toward previous position when tracking
-    if (prevPos) {
-      const dx=cx-prevPos.x, dy=cy-prevPos.y;
-      const dist=Math.sqrt(dx*dx+dy*dy);
-      score /= (1 + dist*0.015);
-      if (prevPos.r) score /= (1+Math.abs(radius-prevPos.r)*0.08);
+    if (hint) {
+      const dx=cx-hint.x, dy=cy-hint.y;
+      score /= (1 + Math.sqrt(dx*dx+dy*dy)*0.015);
+      if (hint.r) score /= (1 + Math.abs(radius-hint.r)*0.08);
     }
-    if (score>bestScore) { bestScore=score; best={x:cx,y:cy,r:radius}; }
+    if (score > bestScore) { bestScore=score; best={x:cx,y:cy,r:radius}; }
   }
   return best;
 }
 
-/* ─── APPLY EXPOSURE CONTROL ─── 
-   Key technique: set low exposureCompensation
-   which forces very fast shutter speed = frozen ball. */
-let imageCapture = null;
+/* ─── EXPOSURE CONTROL ─── */
 async function applyExposure(ev) {
   exposureEV = ev;
-  expVal.textContent = `${ev.toFixed(2)} EV (${ev <= -1.5 ? 'fast shutter ✓' : 'normal'})`;
-  
-  if (!imageCapture) return;
+  expValEl.textContent = `${ev.toFixed(2)} EV${ev <= -1.5 ? ' — fast shutter ✓' : ''}`;
   try {
-    const capabilities = await imageCapture.getPhotoCapabilities();
-    const settings = {};
-    
-    // Try ImageCapture exposure compensation
-    if (capabilities.exposureCompensation) {
-      const {min,max} = capabilities.exposureCompensation;
-      // Map our EV scale (-3 to 0) to device range
-      const mapped = min + ((ev + 3) / 3) * (max - min);
-      settings.exposureCompensation = Math.max(min, Math.min(max, mapped));
+    const track = video.srcObject?.getVideoTracks()[0];
+    if (track?.applyConstraints) {
+      await track.applyConstraints({ advanced: [{ exposureCompensation: ev }] });
     }
-    
-    await imageCapture.setOptions(settings);
-  } catch(e) {
-    // ImageCapture exposure not supported on all devices
-    // Fall back to constraintApply on the track
-    try {
-      const track = video.srcObject?.getVideoTracks()[0];
-      if (track && track.applyConstraints) {
-        await track.applyConstraints({
-          advanced: [{ exposureCompensation: ev }]
-        });
+    if (imageCapture) {
+      const caps = await imageCapture.getPhotoCapabilities().catch(()=>null);
+      if (caps?.exposureCompensation) {
+        const {min,max} = caps.exposureCompensation;
+        const mapped = min + ((ev+3)/3)*(max-min);
+        await imageCapture.setOptions({ exposureCompensation: Math.max(min,Math.min(max,mapped)) });
       }
-    } catch(e2) { /* silent */ }
-  }
+    }
+  } catch(e) { /* silent */ }
 }
 
 /* ─── CAMERA START ─── */
@@ -497,114 +533,91 @@ async function startCamera() {
     const cams = devices.filter(d=>d.kind==='videoinput');
     const back = cams.find(d=>/back|rear|environment/i.test(d.label));
     const usb  = cams.find(d=>/usb|uvc|capture|hdmi|elgato/i.test(d.label));
-
     const deviceId = (usb||back)?.deviceId;
-    const constraints = {
-      video: {
-        ...(deviceId ? {deviceId:{exact:deviceId}} : {facingMode:{ideal:'environment'}}),
-        width:  {ideal:1920},
-        height: {ideal:1080},
-        frameRate: {ideal:60},
-        // Request manual exposure mode so we can set shutter speed
-        exposureMode: 'manual',
-        // Key: very low exposure compensation = very fast shutter = frozen ball
-        exposureCompensation: {ideal: -2.0},
-        // Also try to lock white balance so reference frame stays valid
-        whiteBalanceMode: 'continuous',
-      }
-    };
 
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const stream = await navigator.mediaDevices.getUserMedia({ video: {
+      ...(deviceId ? {deviceId:{exact:deviceId}} : {facingMode:{ideal:'environment'}}),
+      width:  {ideal:1920}, height: {ideal:1080}, frameRate: {ideal:60},
+      exposureMode: 'manual',
+      exposureCompensation: {ideal: -2.0},
+      whiteBalanceMode: 'continuous',
+    }});
+
     video.srcObject = stream;
     await video.play();
+    await new Promise(r => { if(video.videoWidth) return r(); video.addEventListener('loadedmetadata',r,{once:true}); });
 
-    await new Promise(r => {
-      if (video.videoWidth) return r();
-      video.addEventListener('loadedmetadata', r, {once:true});
-    });
-    overlay.width = offscreen.width = video.videoWidth;
-    overlay.height = offscreen.height = video.videoHeight;
+    overlay.width = offscreen.width  = video.videoWidth;
+    overlay.height= offscreen.height = video.videoHeight;
 
-    // Set up ImageCapture for fine exposure control
     const track = stream.getVideoTracks()[0];
-    if (window.ImageCapture) {
-      imageCapture = new ImageCapture(track);
-    }
+    if (window.ImageCapture) imageCapture = new ImageCapture(track);
 
-    // Log actual camera settings
-    const settings = track.getSettings();
-    console.log('Camera settings:', settings);
-    console.log('Actual FPS:', settings.frameRate);
-    console.log('Exposure mode:', settings.exposureMode);
-    console.log('Exposure compensation:', settings.exposureCompensation);
-
-    setStatus(`Camera ready\n${settings.frameRate|0}fps · ${video.videoWidth}×${video.videoHeight}`);
+    const s = track.getSettings();
+    setStatus(`Camera ready\n${s.frameRate|0}fps · ${video.videoWidth}×${video.videoHeight}`);
     document.getElementById('btnCamera').disabled = true;
-    document.getElementById('btnRef').disabled = false;
-    expCtrl.classList.add('show');
-    document.getElementById('exposureHint').classList.remove('show');
+    document.getElementById('btnRef').disabled    = false;
 
-    applyExposure(parseFloat(expSlider.value));
-    toast('Camera started — adjust exposure if needed');
+    /* Show box + exposure slider, hide the camera button */
+    showBox('detecting');
+    expRow.classList.add('show');
+
+    applyExposure(-2.0);
+    toast('Camera started');
+
   } catch(err) {
-    console.error(err);
     setStatus('Camera error:\n'+err.message);
     toast('Camera failed: '+err.message);
   }
 }
 
-/* ─── REFERENCE CAPTURE ─── */
+/* ─── CAPTURE REFERENCE ─── */
 function captureReference() {
   refFrame = grabFrame();
-  const avgBrightness = checkBrightness(refFrame);
-  
-  state = S.WAITING_BALL;
-  preFrames = []; postFrames = [];
-  stableCount = 0; lockedPos = null;
-
-  setStatus(`Ref captured\nBrightness: ${avgBrightness.toFixed(0)}\nPlace ball in view`);
+  checkBrightness(refFrame);
+  state = S.WAITING;
+  preFrames=[]; postFrames=[];
+  stableCount=0; lockedPos=null;
+  showBox('detecting');
+  setStatus('Reference captured\nPlace ball in the box');
   document.getElementById('btnTrack').disabled = false;
   document.getElementById('btnReset').disabled = false;
-  
-  if (avgBrightness < 40) {
-    toast('⚠️ Dark image! Add more light for better detection');
-  } else {
-    toast('Reference captured — place ball & hit');
-  }
+  toast('Reference captured — place ball & press START TRACKING');
 }
 
 /* ─── START TRACKING ─── */
 function startTracking() {
   if (!refFrame) return;
-  state = S.WAITING_BALL;
-  preFrames = []; postFrames = [];
-  stableCount = 0; lockedPos = null; lastPos = null; missedCount = 0;
-  metrics.classList.add('show');
+  state = S.WAITING;
+  preFrames=[]; postFrames=[];
+  stableCount=0; lockedPos=null; lastPos=null; missedCount=0;
+  CFG.PX_PER_METER = null;
+  showMetrics();
+  showBox('detecting');
   document.getElementById('btnTrack').disabled = true;
-  document.getElementById('btnRef').disabled = true;
-  setStatus('Waiting for ball...\nPlace ball in frame');
+  document.getElementById('btnRef').disabled   = true;
+  setStatus('Waiting for ball...\nPlace ball in box');
   setMetric('mFrames','0'); setMetric('mSpeed','--');
-  setMetric('mAngle','--'); setMetric('mDir','--');
-  setMetric('mDev','--');
+  setMetric('mAngle','--'); setMetric('mDir','--'); setMetric('mDev','--');
   scheduleNext();
 }
 
-/* ─── MAIN PROCESSING LOOP ─── */
+/* ─── LOOP ─── */
 function scheduleNext() {
-  if (state===S.IDLE||state===S.DONE) return;
-  if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+  if (state===S.IDLE || state===S.DONE) return;
+  if ('requestVideoFrameCallback' in HTMLVideoElement.prototype)
     loopId = video.requestVideoFrameCallback(onFrame);
-  } else {
+  else
     loopId = requestAnimationFrame(onFrame);
-  }
 }
 
 function onFrame() {
-  if (state===S.IDLE||state===S.DONE) return;
+  if (state===S.IDLE || state===S.DONE) return;
   processFrame();
   scheduleNext();
 }
 
+/* ─── PROCESS FRAME ─── */
 function processFrame() {
   if (!refFrame) return;
   const cur = grabFrame();
@@ -612,36 +625,33 @@ function processFrame() {
   const W = cur.width, H = cur.height;
   const t = performance.now();
 
-  if (state === S.WAITING_BALL || state === S.BALL_LOCKED) {
-    /* Search a generous region for the stationary ball */
-    const ball = findBall(refFrame, cur, 0, W, 0, H, lockedPos);
+  /* ── PRE-IMPACT: find + stabilise ball in box ── */
+  if (state === S.WAITING || state === S.LOCKED) {
+    const box = getBoxVideoRect();
+    const ball = findBall(refFrame, cur, box.x, box.x+box.w, box.y, box.y+box.h, lockedPos);
 
     if (ball) {
-      /* Check stability */
       if (lockedPos) {
         const dx=ball.x-lockedPos.x, dy=ball.y-lockedPos.y;
-        const moved=Math.sqrt(dx*dx+dy*dy);
+        const moved = Math.sqrt(dx*dx+dy*dy);
 
         if (moved < CFG.STABLE_THRESH) {
           stableCount++;
         } else if (moved > CFG.IMPACT_THRESH && stableCount >= CFG.STABLE_FRAMES) {
-          /* ─── IMPACT! ─── */
+          /* ─── IMPACT DETECTED ─── */
           state = S.TRACKING;
-          postFrames = [{x:ball.x,y:ball.y,r:ball.r,t}];
+          postFrames = [{x:ball.x, y:ball.y, r:ball.r, t}];
           lastPos = ball;
           missedCount = 0;
+          showBox('locked');
           setStatus('Impact! Tracking...');
-          toast('Impact detected!');
           setMetric('mFrames','1');
-          
-          // Calibrate px/m from locked ball size if not set
-          if (!CFG.PX_PER_METER && lockedPos) {
-            CFG.PX_PER_METER = (lockedPos.r * 2) / CFG.BALL_DIAMETER_M;
-            console.log(`Auto-calibrated: ${CFG.PX_PER_METER.toFixed(0)} px/m from ball radius ${lockedPos.r.toFixed(1)}px`);
-          }
+          toast('Impact detected!');
+          if (!CFG.PX_PER_METER && lockedPos)
+            CFG.PX_PER_METER = (lockedPos.r*2) / CFG.BALL_DIAM_M;
           return;
         } else {
-          stableCount = Math.max(0, stableCount - 1);
+          stableCount = Math.max(0, stableCount-1);
         }
       }
 
@@ -650,24 +660,25 @@ function processFrame() {
       if (preFrames.length > 30) preFrames.shift();
 
       if (stableCount >= CFG.STABLE_FRAMES) {
-        state = S.BALL_LOCKED;
-        setStatus(`Ball locked ✓\nRadius: ${ball.r.toFixed(1)}px\nReady to hit!`);
+        state = S.LOCKED;
+        showBox('locked');
+        setStatus(`Ball locked ✓\nReady to hit!`);
       } else {
-        setStatus(`Stabilizing...\n${stableCount}/${CFG.STABLE_FRAMES} frames`);
+        showBox('detecting');
+        setStatus(`Stabilising...\n${stableCount}/${CFG.STABLE_FRAMES}`);
       }
     } else {
       stableCount = 0;
-      setStatus('No ball detected\nPlace white ball in view');
+      setStatus('No ball detected\nPlace white ball in box');
     }
 
+  /* ── POST-IMPACT: track across full frame ── */
   } else if (state === S.TRACKING) {
-    /* Search around last known position */
     const sr = CFG.SEARCH_RADIUS;
-    const x0 = lastPos ? lastPos.x - sr : 0;
-    const x1 = lastPos ? lastPos.x + sr : W;
-    const y0 = lastPos ? lastPos.y - sr : 0;
-    const y1 = lastPos ? lastPos.y + sr : H;
-
+    const x0 = lastPos ? lastPos.x-sr : 0;
+    const x1 = lastPos ? lastPos.x+sr : W;
+    const y0 = lastPos ? lastPos.y-sr : 0;
+    const y1 = lastPos ? lastPos.y+sr : H;
     const ball = findBall(refFrame, cur, x0, x1, y0, y1, lastPos);
 
     if (ball) {
@@ -675,88 +686,89 @@ function processFrame() {
       lastPos = ball;
       postFrames.push({x:ball.x,y:ball.y,r:ball.r,t});
       setMetric('mFrames', postFrames.length);
-      if (postFrames.length >= 2) updateMetrics();
+      if (postFrames.length >= 2) calcMetrics();
     } else {
-      missedCount++;
-      if (missedCount > CFG.MAX_MISSED) {
-        finishTracking();
-        return;
-      }
+      if (++missedCount > CFG.MAX_MISSED) { finishTracking(); return; }
     }
-
-    if (postFrames.length >= CFG.MAX_POST_FRAMES) {
-      finishTracking();
-    }
+    if (postFrames.length >= CFG.MAX_POST_FRAMES) finishTracking();
   }
 }
 
-/* ─── FINISH & COMPUTE ─── */
+/* ─── FINISH ─── */
 function finishTracking() {
   state = S.DONE;
-  updateMetrics();
-  setStatus(`Done — ${postFrames.length} frames\nPress RESET for next shot`);
-  toast('Shot tracked! See metrics →');
+  calcMetrics();
+  setStatus(`Done — ${postFrames.length} frames\nRESET for next shot`);
+  showBox('locked');
   document.getElementById('btnRef').disabled = false;
+  toast('Shot tracked! ✓');
 }
 
-function updateMetrics() {
+/* ─── METRICS ─── */
+function calcMetrics() {
   if (postFrames.length < 2) return;
-
-  const f0 = postFrames[0];
-  const fN = postFrames[postFrames.length-1];
-
-  /* velocity from all frames (linear regression for robustness) */
-  let sumT=0,sumX=0,sumY=0,sumT2=0,sumTX=0,sumTY=0;
-  const n = postFrames.length;
-  const t0 = postFrames[0].t;
+  const n=postFrames.length, t0=postFrames[0].t;
+  let st=0,sx=0,sy=0,st2=0,stx=0,sty=0;
   for (const f of postFrames) {
-    const dt = (f.t-t0)/1000;
-    sumT+=dt; sumX+=f.x; sumY+=f.y;
-    sumT2+=dt*dt; sumTX+=dt*f.x; sumTY+=dt*f.y;
+    const dt=(f.t-t0)/1000;
+    st+=dt;sx+=f.x;sy+=f.y;st2+=dt*dt;stx+=dt*f.x;sty+=dt*f.y;
   }
-  const denom = n*sumT2 - sumT*sumT;
-  let vxPxPerSec=0, vyPxPerSec=0;
-  if (Math.abs(denom)>1e-9) {
-    vxPxPerSec = (n*sumTX - sumT*sumX) / denom;
-    vyPxPerSec = (n*sumTY - sumT*sumY) / denom;
-  }
+  const den=n*st2-st*st;
+  let vx=0,vy=0;
+  if (Math.abs(den)>1e-9) { vx=(n*stx-st*sx)/den; vy=(n*sty-st*sy)/den; }
 
-  /* pixel/metre calibration */
   const ppm = CFG.PX_PER_METER || 300;
-  const vxMs = vxPxPerSec / ppm;
-  const vyMs = vyPxPerSec / ppm;
-  const speedMs = Math.sqrt(vxMs*vxMs + vyMs*vyMs);
+  const spd = Math.sqrt((vx/ppm)**2 + (vy/ppm)**2);
 
-  /* angle — invert Y because screen Y goes down */
-  const dx = fN.x - f0.x;
-  const dy = -(fN.y - f0.y);
-  const angleRad = Math.atan2(dy, dx);
-  let angleDeg = angleRad * (180/Math.PI);
-  angleDeg = Math.max(-90, Math.min(90, angleDeg));
+  const f0=postFrames[0], fN=postFrames[n-1];
+  const dx=fN.x-f0.x, dy=-(fN.y-f0.y);
+  const ang = Math.atan2(dy,dx)*(180/Math.PI);
+  const clamped = Math.max(-90,Math.min(90,ang));
+  const dir = clamped>2?'Right':clamped<-2?'Left':'Straight';
+  const dev = Math.tan(ang*Math.PI/180)*100;
 
-  /* direction */
-  const dir = angleDeg > 2 ? 'Right' : angleDeg < -2 ? 'Left' : 'Straight';
-
-  /* lateral deviation in cm at 1m distance (angular) */
-  const deviationCm = Math.tan(angleRad) * 100;
-
-  setMetric('mSpeed',  `${speedMs.toFixed(2)} m/s`);
-  setMetric('mAngle',  `${angleDeg.toFixed(1)}°`);
+  setMetric('mSpeed',  `${spd.toFixed(2)} m/s`);
+  setMetric('mAngle',  `${clamped.toFixed(1)}°`);
   setMetric('mDir',    dir);
-  setMetric('mDev',    `${deviationCm >= 0 ? '+' : ''}${deviationCm.toFixed(1)} cm/m`);
-  setMetric('mFrames', postFrames.length);
+  setMetric('mDev',    `${dev>=0?'+':''}${dev.toFixed(1)} cm/m`);
+  setMetric('mFrames', n);
 }
 
-/* ─── DRAWING ─── */
-let animId = null;
+/* ─── RENDER LOOP ─── */
 function renderLoop() {
-  animId = requestAnimationFrame(renderLoop);
+  requestAnimationFrame(renderLoop);
   if (!overlay.width) return;
-  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  ctx.clearRect(0,0,overlay.width,overlay.height);
+
+  /* ROI horizontal strip (shown once tracking starts) */
+  if (state === S.TRACKING || state === S.DONE) {
+    const W=overlay.width, H=overlay.height;
+    const stripH = H * 0.35;
+    const top    = (H-stripH)/2;
+    const bot    = top+stripH;
+
+    /* shaded area above + below the strip */
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.fillRect(0, 0, W, top);
+    ctx.fillRect(0, bot, W, H-bot);
+
+    /* dashed boundary lines */
+    ctx.strokeStyle = 'rgba(0,255,100,0.55)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([12,6]);
+    ctx.beginPath(); ctx.moveTo(0,top); ctx.lineTo(W,top); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,bot); ctx.lineTo(W,bot); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(0,255,100,0.8)';
+    ctx.font = 'bold 12px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText('TRACKING ZONE', 14, top-8);
+  }
 
   /* Crosshairs */
   if (state !== S.IDLE) {
-    ctx.strokeStyle = 'rgba(231,34,42,0.4)';
+    ctx.strokeStyle = 'rgba(231,34,42,0.35)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([8,5]);
     ctx.beginPath();
@@ -766,88 +778,62 @@ function renderLoop() {
     ctx.setLineDash([]);
   }
 
-  /* Locked ball indicator */
-  if ((state===S.BALL_LOCKED||state===S.WAITING_BALL) && lockedPos && stableCount>=CFG.STABLE_FRAMES) {
-    ctx.strokeStyle = '#ff9500';
+  /* Locked ball ring (pre-impact) */
+  if ((state===S.LOCKED||state===S.WAITING) && lockedPos && stableCount>=CFG.STABLE_FRAMES) {
+    ctx.strokeStyle = 'rgba(255,149,0,0.95)';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(lockedPos.x, lockedPos.y, lockedPos.r+4, 0, Math.PI*2);
+    ctx.arc(lockedPos.x, lockedPos.y, lockedPos.r+5, 0, Math.PI*2);
     ctx.stroke();
-    ctx.fillStyle = 'rgba(255,149,0,0.2)';
+    ctx.fillStyle = 'rgba(255,149,0,0.15)';
     ctx.fill();
-
-    ctx.fillStyle = '#ff9500';
-    ctx.font = 'bold 12px system-ui';
-    ctx.textAlign = 'center';
-    ctx.fillText('BALL LOCKED', lockedPos.x, lockedPos.y - lockedPos.r - 14);
   }
 
   /* Post-impact trajectory */
   if (postFrames.length > 1) {
-    /* trail line */
-    ctx.strokeStyle = 'rgba(0,255,136,0.85)';
+    ctx.strokeStyle = 'rgba(0,255,136,0.9)';
     ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath();
     ctx.moveTo(postFrames[0].x, postFrames[0].y);
     for (let i=1;i<postFrames.length;i++) ctx.lineTo(postFrames[i].x,postFrames[i].y);
     ctx.stroke();
 
-    /* draw each detected position */
     for (let i=0;i<postFrames.length;i++) {
       const f=postFrames[i];
-      const alpha = 0.25 + 0.55*(i/postFrames.length);
-      ctx.beginPath();
-      ctx.arc(f.x, f.y, f.r, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-      ctx.strokeStyle = `rgba(200,255,200,${alpha})`;
-      ctx.lineWidth = 1.5;
-      ctx.fill(); ctx.stroke();
-
-      /* centre dot */
-      ctx.beginPath();
-      ctx.arc(f.x, f.y, 3, 0, Math.PI*2);
-      ctx.fillStyle = 'rgba(0,255,136,0.95)';
-      ctx.fill();
+      const a=0.25+0.55*(i/postFrames.length);
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,255,255,${a})`;
+      ctx.strokeStyle=`rgba(200,255,200,${a})`;
+      ctx.lineWidth=1.5; ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(f.x,f.y,3,0,Math.PI*2);
+      ctx.fillStyle='rgba(0,255,136,0.95)'; ctx.fill();
     }
 
-    /* latest frame highlight */
-    const lp = postFrames[postFrames.length-1];
-    ctx.beginPath();
-    ctx.arc(lp.x, lp.y, lp.r+6, 0, Math.PI*2);
-    ctx.strokeStyle = 'rgba(0,255,136,1)';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
+    const lp=postFrames[postFrames.length-1];
+    ctx.beginPath(); ctx.arc(lp.x,lp.y,lp.r+6,0,Math.PI*2);
+    ctx.strokeStyle='rgba(0,255,136,1)'; ctx.lineWidth=2.5; ctx.stroke();
 
-    /* direction arrow from start → end */
     if (state===S.DONE && postFrames.length>=2) {
-      const p0=postFrames[0], p1=postFrames[postFrames.length-1];
-      drawArrow(p0.x,p0.y,p1.x,p1.y,'rgba(255,255,100,0.8)');
+      const p0=postFrames[0],p1=postFrames[postFrames.length-1];
+      drawArrow(p0.x,p0.y,p1.x,p1.y,'rgba(255,255,100,0.85)');
     }
   }
 
-  /* impact origin circle */
+  /* Impact origin marker */
   if (postFrames.length>0 && lockedPos) {
-    ctx.beginPath();
-    ctx.arc(lockedPos.x, lockedPos.y, lockedPos.r+2, 0, Math.PI*2);
-    ctx.strokeStyle='rgba(231,34,42,0.9)';
-    ctx.lineWidth=2;
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(lockedPos.x,lockedPos.y,lockedPos.r+2,0,Math.PI*2);
+    ctx.strokeStyle='rgba(231,34,42,0.9)'; ctx.lineWidth=2; ctx.stroke();
   }
 }
 
 function drawArrow(x1,y1,x2,y2,color) {
-  const dx=x2-x1,dy=y2-y1;
-  const len=Math.sqrt(dx*dx+dy*dy);
+  const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
   if(len<10)return;
-  const ux=dx/len,uy=dy/len;
-  const hw=14, hl=24;
+  const ux=dx/len,uy=dy/len,hw=14,hl=24;
   ctx.save();
   ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=3;
-  ctx.beginPath();
-  ctx.moveTo(x1,y1); ctx.lineTo(x2-ux*hl,y2-uy*hl);
-  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2-ux*hl,y2-uy*hl); ctx.stroke();
   ctx.beginPath();
   ctx.moveTo(x2,y2);
   ctx.lineTo(x2-ux*hl-uy*hw, y2-uy*hl+ux*hw);
@@ -866,28 +852,21 @@ function reset() {
   }
   refFrame=null; preFrames=[]; postFrames=[];
   stableCount=0; lockedPos=null; lastPos=null; missedCount=0;
-  CFG.PX_PER_METER = null;
+  CFG.PX_PER_METER=null;
   ctx.clearRect(0,0,overlay.width,overlay.height);
-  metrics.classList.remove('show');
+  hideMetrics();
+  showBox('detecting');
   document.getElementById('btnRef').disabled   = false;
   document.getElementById('btnTrack').disabled = true;
   document.getElementById('btnReset').disabled = true;
-  setStatus('Reset\nPress CAPTURE REFERENCE');
-  toast('Reset — capture a new reference frame');
+  setStatus('Ready\nPress CAPTURE REFERENCE');
+  toast('Reset complete');
 }
 
-/* ─── EXPOSURE SLIDER ─── */
-expSlider.addEventListener('input', () => {
-  const ev = parseFloat(expSlider.value);
-  applyExposure(ev);
-});
-
-/* ─── BUTTONS ─── */
+/* ─── EVENTS ─── */
+expSlider.addEventListener('input', () => applyExposure(parseFloat(expSlider.value)));
 document.getElementById('btnCamera').addEventListener('click', startCamera);
-document.getElementById('btnRef').addEventListener('click', () => {
-  captureReference();
-  document.getElementById('btnRef').disabled = false; // keep available
-});
+document.getElementById('btnRef').addEventListener('click', captureReference);
 document.getElementById('btnTrack').addEventListener('click', startTracking);
 document.getElementById('btnReset').addEventListener('click', reset);
 
